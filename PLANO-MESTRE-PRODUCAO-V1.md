@@ -3,6 +3,16 @@
 ## Regra de execução
 Trabalhar uma fase por vez. Não avançar sem autorização explícita. Preservar comportamento validado. Nunca gravar valores reais de GEOAPIFY_API_KEY, ENDERECO_BASE, tokens ou secrets; referências env.GEOAPIFY_API_KEY e env.ENDERECO_BASE são permitidas.
 
+## Prioridade do projeto e preparação para escala
+A prioridade absoluta da Produção V1 é a operação real da **Fonseca Logística** e o funcionamento correto, rápido, seguro e econômico do seu site. Não introduzir complexidade, abstrações ou funcionalidades apenas para atender um SaaS futuro.
+
+Ao mesmo tempo, quando duas soluções forem igualmente adequadas para a Fonseca Logística, preferir a que seja mais modular, configurável e reaproveitável no futuro, sem aumentar risco, custo ou escopo atual. Estruturar responsabilidades de forma clara (geocodificação → classificação → roteamento → precificação → orçamento), centralizar regras/configurações quando isso beneficiar a operação atual e evitar regras comerciais espalhadas.
+
+O SaaS é uma etapa posterior e não faz parte do escopo da Produção V1. Não implementar agora multi-tenant, cadastro de outros motoboys, planos, assinaturas, cobrança, painel SaaS ou personalização por cliente.
+
+## Regra transversal de eficiência
+Em todas as fases, além dos critérios funcionais, avaliar o custo operacional por orçamento: quantidade de chamadas externas, possibilidade de reutilização/cache, trabalho redundante e impacto de latência. Reduzir consumo da Geoapify sempre que isso puder ser feito sem comprometer precisão, segurança, comportamento validado ou ampliar indevidamente a fase. Otimizações maiores permanecem na Fase 6.
+
 ## Arquitetura
 Frontend: site/calculadora, coleta/entrega, orçamento e WhatsApp. Backend: Cloudflare Worker (worker.js) + Geoapify. O backend será a fonte oficial do preço. Manter mode: "motorcycle".
 
