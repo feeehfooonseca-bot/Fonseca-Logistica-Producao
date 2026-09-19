@@ -67,7 +67,9 @@ export default {
         return json({ error: "Falha ao localizar endereço de entrega." }, 422, corsHeaders);
       }
 
-      const isOutsideSBS = normalizeText(deliveryPoint.city) !== "sao bento do sul";
+      const isOutsideSBS =
+        normalizeText(pickupPoint.city) !== "sao bento do sul" ||
+        normalizeText(deliveryPoint.city) !== "sao bento do sul";
       const routeType = isOutsideSBS ? "balanced" : "short";
       const route = await getRoute(
         [base, pickupPoint, deliveryPoint, base],
@@ -81,6 +83,7 @@ export default {
 
       const price = calculatePrice({
         deliveryAddress: delivery,
+        deliveryLocalities: deliveryPoint.localities,
         isOutsideSBS,
         oneWayKm: route.oneWayKm,
         totalKm: route.distanceKm,
@@ -110,13 +113,19 @@ export default {
   },
 };
 
-export function calculatePrice({ deliveryAddress, isOutsideSBS, oneWayKm, totalKm }) {
+export function calculatePrice({
+  deliveryAddress,
+  deliveryLocalities = [],
+  isOutsideSBS,
+  oneWayKm,
+  totalKm,
+}) {
   let rawPrice;
 
   if (isOutsideSBS) {
     rawPrice = totalKm * RATE_PER_KM;
   } else {
-    const specialRegion = identifySpecialRegion(deliveryAddress);
+    const specialRegion = identifySpecialRegion(deliveryLocalities, deliveryAddress);
     if (specialRegion) {
       rawPrice =
         specialRegion.basePrice +
@@ -129,9 +138,14 @@ export function calculatePrice({ deliveryAddress, isOutsideSBS, oneWayKm, totalK
   return Math.ceil(rawPrice);
 }
 
-function identifySpecialRegion(deliveryAddress) {
-  const normalizedAddress = normalizeText(deliveryAddress);
-  return SPECIAL_REGIONS.find(({ match }) => normalizedAddress.includes(match)) || null;
+function identifySpecialRegion(deliveryLocalities, deliveryAddress) {
+  const geocodedLocation = normalizeText(deliveryLocalities.join(" "));
+  const rawAddress = normalizeText(deliveryAddress);
+  return (
+    SPECIAL_REGIONS.find(
+      ({ match }) => geocodedLocation.includes(match) || rawAddress.includes(match),
+    ) || null
+  );
 }
 
 function normalizeText(value) {
@@ -163,6 +177,14 @@ async function geocode(address, apiKey) {
     lat: Number(result.lat),
     lon: Number(result.lon),
     city: result.city || result.county || result.municipality || "",
+    localities: [
+      result.suburb,
+      result.district,
+      result.neighbourhood,
+      result.quarter,
+      result.village,
+      result.hamlet,
+    ].filter((value) => typeof value === "string" && value.trim()),
   };
 }
 

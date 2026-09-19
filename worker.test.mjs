@@ -54,7 +54,14 @@ function specialPrice(deliveryAddress, totalKm) {
 const pointsByAddress = {
   Base: { lat: -26.1, lon: -49.1, city: "São Bento do Sul" },
   Coleta: { lat: -26.2, lon: -49.2, city: "São Bento do Sul" },
+  "Coleta externa": { lat: -26.25, lon: -49.25, city: "Campo Alegre" },
   Local: { lat: -26.3, lon: -49.3, city: "São Bento do Sul" },
+  "Estrada Floresta": {
+    lat: -26.31,
+    lon: -49.31,
+    city: "São Bento do Sul",
+    suburb: "Rio Natal",
+  },
   Externa: { lat: -26.4, lon: -49.4, city: "Campo Alegre" },
 };
 
@@ -65,7 +72,7 @@ function geoapifyResponse(body) {
   });
 }
 
-async function requestQuote(delivery, extraBody = {}) {
+async function requestQuote(delivery, extraBody = {}, pickup = "Coleta") {
   const calls = [];
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (input) => {
@@ -74,7 +81,7 @@ async function requestQuote(delivery, extraBody = {}) {
     if (url.pathname === "/v1/geocode/search") {
       const point = pointsByAddress[url.searchParams.get("text")];
       return geoapifyResponse({
-        results: point ? [{ lat: point.lat, lon: point.lon, city: point.city }] : [],
+        results: point ? [point] : [],
       });
     }
 
@@ -93,7 +100,7 @@ async function requestQuote(delivery, extraBody = {}) {
       new Request("https://worker.example.test/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pickup: "Coleta", delivery, ...extraBody }),
+        body: JSON.stringify({ pickup, delivery, ...extraBody }),
       }),
       { GEOAPIFY_API_KEY: "test-key", ENDERECO_BASE: "Base" },
     );
@@ -130,4 +137,35 @@ test("orçamento externo retorna preço pelo circuito com uma rota BALANCED", as
   assert.equal(body.oneWayKm, 7.1);
   assert.equal(body.distanceKm, 30);
   assert.equal(body.distanceKmBalanced, 30);
+});
+
+test("coleta externa e entrega SBS formam viagem BALANCED", async () => {
+  const { body, calls } = await requestQuote("Local", {}, "Coleta externa");
+  const routingCalls = calls.filter((url) => url.pathname.includes("/routing"));
+
+  assert.equal(routingCalls.length, 1);
+  assert.equal(routingCalls[0].searchParams.get("type"), "balanced");
+  assert.equal(routingCalls[0].searchParams.get("mode"), "motorcycle");
+  assert.equal(body.price, 33);
+  assert.equal(body.distanceKm, 30);
+  assert.equal(body.oneWayKm, 7.1);
+});
+
+test("coleta e entrega externas formam viagem BALANCED", async () => {
+  const { body, calls } = await requestQuote("Externa", {}, "Coleta externa");
+  const routingCalls = calls.filter((url) => url.pathname.includes("/routing"));
+
+  assert.equal(routingCalls.length, 1);
+  assert.equal(routingCalls[0].searchParams.get("type"), "balanced");
+  assert.equal(routingCalls[0].searchParams.get("mode"), "motorcycle");
+  assert.equal(body.price, 33);
+});
+
+test("prefere a localidade geocodificada para identificar região especial", async () => {
+  const { body, calls } = await requestQuote("Estrada Floresta");
+  const routingCalls = calls.filter((url) => url.pathname.includes("/routing"));
+
+  assert.equal(routingCalls.length, 1);
+  assert.equal(routingCalls[0].searchParams.get("type"), "short");
+  assert.equal(body.price, 30);
 });
