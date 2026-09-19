@@ -74,9 +74,15 @@ function geoapifyResponse(body) {
   return new Response(JSON.stringify(body), { status: 200 });
 }
 
-async function requestQuote(body) {
+async function requestQuote(body, options = {}) {
   const calls = [];
+  const logs = [];
   const originalFetch = globalThis.fetch;
+  const originalCaches = globalThis.caches;
+  const originalConsoleLog = console.log;
+  if (options.cache) globalThis.caches = { default: options.cache };
+  else delete globalThis.caches;
+  console.log = (message) => logs.push(JSON.parse(message));
   globalThis.fetch = async (input) => {
     const url = new URL(input);
     calls.push(url);
@@ -102,11 +108,18 @@ async function requestQuote(body) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       }),
-      { GEOAPIFY_API_KEY: "test-key", ENDERECO_BASE: "Base" },
+      {
+        GEOAPIFY_API_KEY: "test-key",
+        ENDERECO_BASE: "Base",
+        ...options.env,
+      },
     );
-    return { response, body: await response.json(), calls };
+    return { response, body: await response.json(), calls, logs };
   } finally {
     globalThis.fetch = originalFetch;
+    console.log = originalConsoleLog;
+    if (originalCaches === undefined) delete globalThis.caches;
+    else globalThis.caches = originalCaches;
   }
 }
 
@@ -203,6 +216,109 @@ test("geocodifica base e coleta uma vez, cada entrega uma vez, e roteia uma vez 
   assert.equal(geocodeCount(calls, "Externa"), 1);
   assert.equal(callsAt(calls, "/geocode/search").length, 5);
   assert.equal(callsAt(calls, "/routing").length, 3);
+});
+
+test("BASE_LAT e BASE_LON válidos eliminam a geocodificação da base", async () => {
+  const { response, calls } = await requestQuote(
+    { pickup: "Coleta", delivery: "Local" },
+    { env: { BASE_LAT: "-26.1", BASE_LON: "-49.1", ENDERECO_BASE: undefined } },
+  );
+  assert.equal(response.status, 200);
+  assert.equal(geocodeCount(calls, "Base"), 0);
+  assert.equal(callsAt(calls, "/geocode/search").length, 2);
+});
+
+test("ausência ou coordenadas inválidas da base usam ENDERECO_BASE", async (t) => {
+  for (const env of [
+    {},
+    { BASE_LAT: "inválida", BASE_LON: "-49.1" },
+    { BASE_LAT: "91", BASE_LON: "-49.1" },
+    { BASE_LAT: "-26.1", BASE_LON: "181" },
+  ]) {
+    await t.test(JSON.stringify(env), async () => {
+      const { response, calls } = await requestQuote(
+        { pickup: "Coleta", delivery: "Local" },
+        { env },
+      );
+      assert.equal(response.status, 200);
+      assert.equal(geocodeCount(calls, "Base"), 1);
+    });
+  }
+});
+
+test("reutiliza coleta e endereços repetidos dentro da mesma requisição", async () => {
+  const { body, calls } = await requestQuote({
+    pickup: "Coleta",
+    deliveries: ["Local", "Local", "Local longe", "Local longe"],
+  });
+  assert.equal(geocodeCount(calls, "Coleta"), 1);
+  assert.equal(geocodeCount(calls, "Local"), 1);
+  assert.equal(geocodeCount(calls, "Local longe"), 1);
+  assert.equal(callsAt(calls, "/routing").length, 4);
+  assert.deepEqual(body.deliveries.map((item) => item.price), [15, 15, 17, 17]);
+  assert.equal(body.totalPrice, 64);
+});
+
+function memoryCache() {
+  const entries = new Map();
+  return {
+    async match(request) {
+      return entries.get(request.url)?.clone();
+    },
+    async put(request, response) {
+      entries.set(request.url, response.clone());
+    },
+  };
+}
+
+test("cache hit evita novas chamadas externas de geocoding", async () => {
+  const cache = memoryCache();
+  const first = await requestQuote(
+    { pickup: "Coleta", delivery: "Local" },
+    { cache, env: { BASE_LAT: "-26.1", BASE_LON: "-49.1" } },
+  );
+  const second = await requestQuote(
+    { pickup: "Coleta", delivery: "Local" },
+    { cache, env: { BASE_LAT: "-26.1", BASE_LON: "-49.1" } },
+  );
+  assert.equal(callsAt(first.calls, "/geocode/search").length, 2);
+  assert.equal(callsAt(second.calls, "/geocode/search").length, 0);
+  assert.equal(second.logs[0].geocodeCacheHits, 2);
+  assert.equal(second.logs[0].geocodingCalls, 0);
+  assert.equal(callsAt(second.calls, "/routing").length, 1);
+});
+
+test("cache miss consulta Geoapify e não inclui endereço nem API key na chave", async () => {
+  const requestedKeys = [];
+  const cache = {
+    async match(request) {
+      requestedKeys.push(request.url);
+      return undefined;
+    },
+    async put() {},
+  };
+  const { calls, logs } = await requestQuote(
+    { pickup: "Coleta", delivery: "Local" },
+    { cache, env: { BASE_LAT: "-26.1", BASE_LON: "-49.1" } },
+  );
+  assert.equal(callsAt(calls, "/geocode/search").length, 2);
+  assert.equal(logs[0].geocodeCacheMisses, 2);
+  assert.ok(requestedKeys.every((key) => !key.includes("Coleta") && !key.includes("test-key")));
+});
+
+test("falha de cache não impede orçamento e é contabilizada", async () => {
+  const cache = {
+    async match() { throw new Error("cache indisponível"); },
+    async put() { throw new Error("cache indisponível"); },
+  };
+  const { response, body, calls, logs } = await requestQuote(
+    { pickup: "Coleta", delivery: "Local" },
+    { cache, env: { BASE_LAT: "-26.1", BASE_LON: "-49.1" } },
+  );
+  assert.equal(response.status, 200);
+  assert.equal(body.price, 15);
+  assert.equal(callsAt(calls, "/geocode/search").length, 2);
+  assert.equal(logs[0].technicalErrors, 4);
 });
 
 test("rejeita deliveries vazio, endereço vazio, tipo inválido ou ausência de entrega", async (t) => {
