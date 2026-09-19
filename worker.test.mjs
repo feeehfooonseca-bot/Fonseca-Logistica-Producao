@@ -61,7 +61,7 @@ async function requestQuote(delivery) {
   }
 }
 
-test("restaura os circuitos short e balanced sem terceira rota", async () => {
+test("usa somente o circuito short para entrega local", async () => {
   const { response, body, calls } = await requestQuote("Local");
   const geocodingCalls = calls.filter((url) =>
     url.pathname.includes("/geocode/"),
@@ -70,11 +70,8 @@ test("restaura os circuitos short e balanced sem terceira rota", async () => {
 
   assert.equal(response.status, 200);
   assert.equal(geocodingCalls.length, 3);
-  assert.equal(routingCalls.length, 2);
-  assert.deepEqual(
-    routingCalls.map((url) => url.searchParams.get("type")).sort(),
-    ["balanced", "short"],
-  );
+  assert.equal(routingCalls.length, 1);
+  assert.equal(routingCalls[0].searchParams.get("type"), "short");
 
   for (const url of routingCalls) {
     assert.equal(url.searchParams.get("mode"), "motorcycle");
@@ -90,7 +87,7 @@ test("restaura os circuitos short e balanced sem terceira rota", async () => {
     ok: true,
     oneWayKm: null,
     distanceKm: 10,
-    distanceKmBalanced: 10.8,
+    distanceKmBalanced: null,
     km: 10,
     distance: 10,
     distance_km: 10,
@@ -100,13 +97,17 @@ test("restaura os circuitos short e balanced sem terceira rota", async () => {
   });
 });
 
-test("preserva a seleção balanced para entrega externa", async () => {
+test("usa somente o circuito balanced para entrega externa", async () => {
   const { response, body, calls } = await requestQuote("Externa");
 
   assert.equal(response.status, 200);
-  assert.equal(calls.filter((url) => url.pathname.includes("/routing")).length, 2);
+  const routingCalls = calls.filter((url) => url.pathname.includes("/routing"));
+
+  assert.equal(routingCalls.length, 1);
+  assert.equal(routingCalls[0].searchParams.get("type"), "balanced");
+  assert.equal(routingCalls[0].searchParams.get("mode"), "motorcycle");
   assert.equal(body.km, 10.8);
-  assert.equal(body.distanceKm, 10);
+  assert.equal(body.distanceKm, 10.8);
   assert.equal(body.distanceKmBalanced, 10.8);
   assert.equal(body.oneWayKm, null);
 });
