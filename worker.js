@@ -1,4 +1,5 @@
 const RATE_PER_KM = 1.1;
+const GEOCODE_CACHE_TTL_SECONDS = 86400;
 
 const SPECIAL_REGIONS = [
   { name: "rio_vermelho_estacao", match: "rio vermelho estacao", basePrice: 25, includedKm: 12 },
@@ -8,6 +9,16 @@ const SPECIAL_REGIONS = [
 
 export default {
   async fetch(request, env) {
+    const startedAt = Date.now();
+    const telemetry = {
+      event: "quote_processing",
+      deliveryCount: 0,
+      geocodingCalls: 0,
+      routingCalls: 0,
+      geocodeCacheHits: 0,
+      geocodeCacheMisses: 0,
+      technicalErrors: 0,
+    };
     const corsHeaders = {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -28,7 +39,8 @@ export default {
         return json({ error: "GEOAPIFY_API_KEY não configurada." }, 500, corsHeaders);
       }
 
-      if (!env.ENDERECO_BASE) {
+      const configuredBase = readBaseCoordinates(env);
+      if (!configuredBase && !validAddress(env.ENDERECO_BASE)) {
         return json({ error: "ENDERECO_BASE não configurado." }, 500, corsHeaders);
       }
 
@@ -54,12 +66,21 @@ export default {
           corsHeaders,
         );
       }
+      telemetry.deliveryCount = deliveryAddresses.length;
 
-      const baseAddress = String(env.ENDERECO_BASE).trim();
+      const geocodes = new Map();
+      const geocodeOnce = (address) => {
+        const key = normalizeAddressKey(address);
+        if (!geocodes.has(key)) {
+          geocodes.set(key, geocode(address, env.GEOAPIFY_API_KEY, telemetry));
+        }
+        return geocodes.get(key);
+      };
+      const baseAddress = validAddress(env.ENDERECO_BASE);
       const [base, pickupPoint, ...deliveryPoints] = await Promise.all([
-        geocode(baseAddress, env.GEOAPIFY_API_KEY),
-        geocode(pickup, env.GEOAPIFY_API_KEY),
-        ...deliveryAddresses.map((address) => geocode(address, env.GEOAPIFY_API_KEY)),
+        configuredBase || geocodeOnce(baseAddress),
+        geocodeOnce(pickup),
+        ...deliveryAddresses.map(geocodeOnce),
       ]);
 
       if (!base) {
@@ -85,7 +106,12 @@ export default {
       });
       const routes = await Promise.all(
         quoteInputs.map(({ point, routeType }) =>
-          getRoute([base, pickupPoint, point, base], env.GEOAPIFY_API_KEY, routeType),
+          getRoute(
+            [base, pickupPoint, point, base],
+            env.GEOAPIFY_API_KEY,
+            routeType,
+            telemetry,
+          ),
         ),
       );
 
@@ -145,8 +171,14 @@ export default {
 
       return json(response, 200, corsHeaders);
     } catch (error) {
+      telemetry.technicalErrors += 1;
       console.error(error);
       return json({ error: "Erro interno ao calcular a rota." }, 500, corsHeaders);
+    } finally {
+      console.log(JSON.stringify({
+        ...telemetry,
+        durationMs: Date.now() - startedAt,
+      }));
     }
   },
 };
@@ -200,7 +232,45 @@ function normalizeText(value) {
     .trim();
 }
 
-async function geocode(address, apiKey) {
+function normalizeAddressKey(value) {
+  return String(value).normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function readBaseCoordinates(env) {
+  if (env.BASE_LAT === undefined || env.BASE_LON === undefined) return null;
+  const lat = Number(env.BASE_LAT);
+  const lon = Number(env.BASE_LON);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+  return { lat, lon, city: "", localities: [] };
+}
+
+async function geocode(address, apiKey, telemetry) {
+  const cache = globalThis.caches?.default;
+  let cacheRequest = null;
+  if (cache) {
+    try {
+      cacheRequest = await geocodeCacheRequest(address);
+    } catch {
+      telemetry.technicalErrors += 1;
+    }
+  }
+  if (cache && cacheRequest) {
+    try {
+      const cachedResponse = await cache.match(cacheRequest);
+      if (cachedResponse) {
+        const cachedPoint = await cachedResponse.json();
+        if (validPoint(cachedPoint)) {
+          telemetry.geocodeCacheHits += 1;
+          return cachedPoint;
+        }
+      }
+    } catch {
+      telemetry.technicalErrors += 1;
+    }
+  }
+  telemetry.geocodeCacheMisses += 1;
+  telemetry.geocodingCalls += 1;
   const url =
     "https://api.geoapify.com/v1/geocode/search?" +
     new URLSearchParams({
@@ -215,7 +285,7 @@ async function geocode(address, apiKey) {
 
   const result = (await response.json())?.results?.[0];
   if (!result) return null;
-  return {
+  const point = {
     lat: Number(result.lat),
     lon: Number(result.lon),
     city: result.city || result.county || result.municipality || "",
@@ -228,9 +298,39 @@ async function geocode(address, apiKey) {
       result.hamlet,
     ].filter((value) => typeof value === "string" && value.trim()),
   };
+  if (!validPoint(point)) return null;
+
+  if (cache && cacheRequest) {
+    try {
+      await cache.put(cacheRequest, new Response(JSON.stringify(point), {
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": `public, max-age=${GEOCODE_CACHE_TTL_SECONDS}`,
+        },
+      }));
+    } catch {
+      telemetry.technicalErrors += 1;
+    }
+  }
+  return point;
 }
 
-async function getRoute(points, apiKey, routeType = "short") {
+async function geocodeCacheRequest(address) {
+  const bytes = new TextEncoder().encode(normalizeAddressKey(address));
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const hash = [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  return new Request(`https://geocode-cache.invalid/v1/${hash}`);
+}
+
+function validPoint(point) {
+  return Number.isFinite(point?.lat) && Number.isFinite(point?.lon) &&
+    point.lat >= -90 && point.lat <= 90 && point.lon >= -180 && point.lon <= 180;
+}
+
+async function getRoute(points, apiKey, routeType = "short", telemetry) {
+  telemetry.routingCalls += 1;
   const waypoints = points.map((point) => `${point.lat},${point.lon}`).join("|");
   const url =
     "https://api.geoapify.com/v1/routing?" +
