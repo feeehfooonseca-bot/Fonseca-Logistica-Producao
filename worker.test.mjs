@@ -39,9 +39,12 @@ async function requestQuote(delivery) {
     }
 
     assert.equal(url.pathname, "/v1/routing");
-    const meters = url.searchParams.get("type") === "balanced" ? 10_800 : 10_000;
+    const isBalanced = url.searchParams.get("type") === "balanced";
+    const legs = isBalanced
+      ? [{ distance: 2_600 }, { distance: 4_500 }, { distance: 3_700 }]
+      : [{ distance: 2_300 }, { distance: 4_100 }, { distance: 3_600 }];
     return geoapifyResponse({
-      features: [{ properties: { distance: meters } }],
+      features: [{ properties: { distance: isBalanced ? 10_800 : 10_000, legs } }],
     });
   };
 
@@ -83,9 +86,10 @@ test("usa somente o circuito short para entrega local", async () => {
     ]);
   }
 
+  assert.notEqual(body.oneWayKm, body.distanceKm / 2);
   assert.deepEqual(body, {
     ok: true,
-    oneWayKm: null,
+    oneWayKm: 6.4,
     distanceKm: 10,
     distanceKmBalanced: null,
     km: 10,
@@ -109,5 +113,6 @@ test("usa somente o circuito balanced para entrega externa", async () => {
   assert.equal(body.km, 10.8);
   assert.equal(body.distanceKm, 10.8);
   assert.equal(body.distanceKmBalanced, 10.8);
-  assert.equal(body.oneWayKm, null);
+  assert.equal(body.oneWayKm, 7.1);
+  assert.notEqual(body.oneWayKm, body.distanceKm / 2);
 });
