@@ -39,10 +39,15 @@ export default {
         return json({ error: "JSON inválido." }, 400, corsHeaders);
       }
 
-      const pickup = String(body?.pickup || "").trim();
-      const delivery = String(body?.delivery || "").trim();
+      const pickup = validAddress(body?.pickup);
+      const usesDeliveries = Object.prototype.hasOwnProperty.call(body || {}, "deliveries");
+      const deliveryAddresses = usesDeliveries
+        ? Array.isArray(body.deliveries) && body.deliveries.length > 0
+          ? body.deliveries.map(validAddress)
+          : null
+        : [validAddress(body?.delivery)];
 
-      if (!pickup || !delivery) {
+      if (!pickup || !deliveryAddresses || deliveryAddresses.some((address) => !address)) {
         return json(
           { error: "Informe os endereços de coleta e entrega." },
           400,
@@ -51,10 +56,10 @@ export default {
       }
 
       const baseAddress = String(env.ENDERECO_BASE).trim();
-      const [base, pickupPoint, deliveryPoint] = await Promise.all([
+      const [base, pickupPoint, ...deliveryPoints] = await Promise.all([
         geocode(baseAddress, env.GEOAPIFY_API_KEY),
         geocode(pickup, env.GEOAPIFY_API_KEY),
-        geocode(delivery, env.GEOAPIFY_API_KEY),
+        ...deliveryAddresses.map((address) => geocode(address, env.GEOAPIFY_API_KEY)),
       ]);
 
       if (!base) {
@@ -63,49 +68,82 @@ export default {
       if (!pickupPoint) {
         return json({ error: "Falha ao localizar endereço de coleta." }, 422, corsHeaders);
       }
-      if (!deliveryPoint) {
+      if (deliveryPoints.some((point) => !point)) {
         return json({ error: "Falha ao localizar endereço de entrega." }, 422, corsHeaders);
       }
 
-      const isOutsideSBS =
-        normalizeText(pickupPoint.city) !== "sao bento do sul" ||
-        normalizeText(deliveryPoint.city) !== "sao bento do sul";
-      const routeType = isOutsideSBS ? "balanced" : "short";
-      const route = await getRoute(
-        [base, pickupPoint, deliveryPoint, base],
-        env.GEOAPIFY_API_KEY,
-        routeType,
+      const pickupIsOutsideSBS = normalizeText(pickupPoint.city) !== "sao bento do sul";
+      const quoteInputs = deliveryPoints.map((deliveryPoint, index) => {
+        const isOutsideSBS =
+          pickupIsOutsideSBS || normalizeText(deliveryPoint.city) !== "sao bento do sul";
+        return {
+          address: deliveryAddresses[index],
+          point: deliveryPoint,
+          isOutsideSBS,
+          routeType: isOutsideSBS ? "balanced" : "short",
+        };
+      });
+      const routes = await Promise.all(
+        quoteInputs.map(({ point, routeType }) =>
+          getRoute([base, pickupPoint, point, base], env.GEOAPIFY_API_KEY, routeType),
+        ),
       );
 
-      if (!route || (!isOutsideSBS && route.oneWayKm === null)) {
+      if (
+        routes.some(
+          (route, index) => !route || (!quoteInputs[index].isOutsideSBS && route.oneWayKm === null),
+        )
+      ) {
         return json({ error: "Não foi possível calcular a rota." }, 502, corsHeaders);
       }
 
-      const price = calculatePrice({
-        deliveryAddress: delivery,
-        deliveryLocalities: deliveryPoint.localities,
-        isOutsideSBS,
-        oneWayKm: route.oneWayKm,
-        totalKm: route.distanceKm,
-      });
-
-      return json(
-        {
-          ok: true,
-          price,
+      const deliveries = quoteInputs.map((input, index) => {
+        const route = routes[index];
+        const specialRegion = input.isOutsideSBS
+          ? null
+          : identifySpecialRegion(input.point.localities, input.address);
+        const price = calculatePrice({
+          deliveryAddress: input.address,
+          deliveryLocalities: input.point.localities,
+          isOutsideSBS: input.isOutsideSBS,
+          oneWayKm: route.oneWayKm,
+          totalKm: route.distanceKm,
+        });
+        return {
+          address: input.address,
+          classification: input.isOutsideSBS
+            ? "viagem"
+            : specialRegion?.name || "local",
+          routeType: input.routeType,
           oneWayKm: route.oneWayKm,
           distanceKm: route.distanceKm,
-          distanceKmBalanced: isOutsideSBS ? route.distanceKm : null,
-          km: route.distanceKm,
-          distance: route.distanceKm,
-          distance_km: route.distanceKm,
+          relevantDistanceKm: input.isOutsideSBS || specialRegion
+            ? route.distanceKm
+            : route.oneWayKm,
+          price,
+          delivery: { lat: input.point.lat, lon: input.point.lon },
+        };
+      });
+      const totalPrice = deliveries.reduce((total, item) => total + item.price, 0);
+
+      const response = { ok: true, deliveries, totalPrice };
+      if (!usesDeliveries) {
+        const result = deliveries[0];
+        Object.assign(response, {
+          price: result.price,
+          oneWayKm: result.oneWayKm,
+          distanceKm: result.distanceKm,
+          distanceKmBalanced: result.classification === "viagem" ? result.distanceKm : null,
+          km: result.distanceKm,
+          distance: result.distanceKm,
+          distance_km: result.distanceKm,
           base: { lat: base.lat, lon: base.lon },
           pickup: { lat: pickupPoint.lat, lon: pickupPoint.lon },
-          delivery: { lat: deliveryPoint.lat, lon: deliveryPoint.lon },
-        },
-        200,
-        corsHeaders,
-      );
+          delivery: result.delivery,
+        });
+      }
+
+      return json(response, 200, corsHeaders);
     } catch (error) {
       console.error(error);
       return json({ error: "Erro interno ao calcular a rota." }, 500, corsHeaders);
@@ -136,6 +174,10 @@ export function calculatePrice({
   }
 
   return Math.ceil(rawPrice);
+}
+
+function validAddress(value) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
 function identifySpecialRegion(deliveryLocalities, deliveryAddress) {
