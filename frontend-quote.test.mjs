@@ -166,3 +166,71 @@ test("HTML local inicializa a calculadora sem depender de módulo externo", asyn
   assert.match(localHtml, /async function requestOfficialQuote\(pickup,deliveries\)/);
   assert.match(localHtml, /await requestOfficialQuote\(pickup,deliveries\)/);
 });
+
+
+test("aceita orçamento com duas viagens externas em grupo compartilhado", async () => {
+  const deliveries = [{ address: "Campo Alegre" }, { address: "Joinville" }];
+  const quote = await requestOfficialQuote("Coleta", deliveries, async () => response({
+    ok: true,
+    deliveries: [
+      {
+        address: "Campo Alegre",
+        classification: "viagem",
+        routeType: "balanced",
+        price: null,
+        distanceKm: null,
+        pricingGroupId: "external-shared-1",
+      },
+      {
+        address: "Joinville",
+        classification: "viagem",
+        routeType: "balanced",
+        price: null,
+        distanceKm: null,
+        pricingGroupId: "external-shared-1",
+      },
+    ],
+    sharedTrips: [{
+      id: "external-shared-1",
+      classification: "viagem",
+      routeType: "balanced",
+      deliveryIndexes: [0, 1],
+      distanceKm: 150,
+      price: 165,
+    }],
+    totalPrice: 165,
+  }));
+
+  assert.equal(quote.totalPrice, 165);
+  assert.equal(quote.sharedTrips[0].price, 165);
+});
+
+test("rejeita grupo compartilhado adulterado ou total incompatível", async (t) => {
+  const deliveries = [{ address: "A" }, { address: "B" }];
+  const base = {
+    ok: true,
+    deliveries: [
+      { address: "A", classification: "viagem", routeType: "balanced", price: null, distanceKm: null, pricingGroupId: "g" },
+      { address: "B", classification: "viagem", routeType: "balanced", price: null, distanceKm: null, pricingGroupId: "g" },
+    ],
+    sharedTrips: [{
+      id: "g", classification: "viagem", routeType: "balanced",
+      deliveryIndexes: [0, 1], distanceKm: 100, price: 110,
+    }],
+    totalPrice: 110,
+  };
+  const invalid = [
+    { ...base, totalPrice: 109 },
+    { ...base, sharedTrips: [{ ...base.sharedTrips[0], deliveryIndexes: [0] }] },
+    { ...base, sharedTrips: [{ ...base.sharedTrips[0], routeType: "short" }] },
+    { ...base, deliveries: [{ ...base.deliveries[0], price: 1 }, base.deliveries[1]] },
+  ];
+  for (const quote of invalid) {
+    await t.test(JSON.stringify(quote), async () => {
+      await assert.rejects(
+        requestOfficialQuote("Coleta", deliveries, async () => response(quote)),
+        /orçamento inválido/,
+      );
+    });
+  }
+});
