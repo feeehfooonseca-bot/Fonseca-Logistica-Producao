@@ -89,6 +89,7 @@ async function requestQuote(body, options = {}) {
   globalThis.fetch = async (input) => {
     const url = new URL(input);
     calls.push(url);
+    if (options.fetch) return options.fetch(url, calls);
     if (url.pathname === "/v1/geocode/search") {
       const point = pointsByAddress[url.searchParams.get("text")];
       return geoapifyResponse({ results: point ? [point] : [] });
@@ -112,7 +113,9 @@ async function requestQuote(body, options = {}) {
       new Request("https://worker.example.test/", {
         method,
         headers,
-        body: method === "POST" ? JSON.stringify(body) : undefined,
+        body: method === "POST"
+          ? options.rawBody === undefined ? JSON.stringify(body) : options.rawBody
+          : undefined,
       }),
       {
         GEOAPIFY_API_KEY: "test-key",
@@ -499,4 +502,294 @@ test("rejeita deliveries vazio, endereço vazio, tipo inválido ou ausência de 
       assert.equal(result.calls.length, 0);
     });
   }
+});
+
+test("fronteiras completas da tarifa local comum", () => {
+  const cases = [
+    [0, 15], [11.9, 15], [12, 15], [12.0001, 16],
+    [13, 17], [15, 19], [16, 20], [20, 24],
+  ];
+  for (const [kilometers, expected] of cases) {
+    assert.equal(calculatePrice(localPrice(kilometers)), expected, `${kilometers} km`);
+  }
+});
+
+test("fronteiras e arredondamento das três regiões especiais", () => {
+  const regions = [
+    ["Rio Vermelho Povoado", 8, 20],
+    ["Rio Vermelho Estação", 12, 25],
+    ["Rio Natal", 16, 30],
+  ];
+  for (const [address, limit, basePrice] of regions) {
+    assert.equal(calculatePrice(specialPrice(address, limit - 0.1)), basePrice);
+    assert.equal(calculatePrice(specialPrice(address, limit)), basePrice);
+    assert.equal(calculatePrice(specialPrice(address, limit + 0.001)), basePrice + 1);
+    assert.equal(calculatePrice(specialPrice(address, limit + 3.5)), Math.ceil(basePrice + 3.85));
+  }
+});
+
+test("regiões especiais usam primeiro a localidade do geocoder e depois o endereço", () => {
+  assert.equal(calculatePrice({
+    deliveryAddress: "Endereço sintético sem bairro",
+    deliveryLocalities: ["Rio Vermelho Povoado"],
+    isOutsideSBS: false,
+    oneWayKm: 99,
+    totalKm: 8,
+  }), 20);
+  assert.equal(calculatePrice({
+    deliveryAddress: "Via sintética, Rio Natal",
+    deliveryLocalities: [],
+    isOutsideSBS: false,
+    oneWayKm: 99,
+    totalKm: 16,
+  }), 30);
+});
+
+test("circuito de cada entrega é BASE, COLETA, ENTREGA, BASE sem terceira rota", async () => {
+  const { calls } = await requestQuote({ pickup: "Coleta", deliveries: ["Local", "Externa"] });
+  const routes = callsAt(calls, "/routing");
+  assert.equal(routes.length, 2);
+  for (const route of routes) {
+    const waypoints = route.searchParams.get("waypoints").split("|");
+    assert.equal(waypoints.length, 4);
+    assert.equal(waypoints[0], waypoints[3]);
+    assert.equal(waypoints[1], "-26.2,-49.2");
+  }
+});
+
+test("coleta externa com entrega externa permanece viagem BALANCED", async () => {
+  const { body, calls } = await requestQuote({ pickup: "Coleta externa", delivery: "Externa" });
+  assert.equal(body.deliveries[0].classification, "viagem");
+  assert.equal(body.deliveries[0].routeType, "balanced");
+  assert.equal(body.price, 34);
+  assert.equal(callsAt(calls, "/routing")[0].searchParams.get("type"), "balanced");
+});
+
+test("ordem, endereço repetido e preços individuais são preservados", async () => {
+  const { body, calls } = await requestQuote({
+    pickup: "Coleta",
+    deliveries: ["Externa", "Local", "Externa", "Local longe"],
+  });
+  assert.deepEqual(body.deliveries.map(({ address }) => address),
+    ["Externa", "Local", "Externa", "Local longe"]);
+  assert.deepEqual(body.deliveries.map(({ price }) => price), [34, 15, 34, 17]);
+  assert.equal(body.totalPrice, 100);
+  assert.equal(geocodeCount(calls, "Externa"), 1);
+  assert.equal(callsAt(calls, "/routing").length, 4);
+});
+
+test("soma preços já arredondados, nunca o total bruto", () => {
+  const individual = [15, 16.65, 19.95].map((raw) =>
+    calculatePrice(externalPrice(raw / 1.1)));
+  assert.deepEqual(individual, [15, 17, 20]);
+  assert.equal(individual.reduce((sum, value) => sum + value, 0), 52);
+});
+
+test("uma entrega com base configurada faz duas geocodificações e uma rota", async () => {
+  const { calls, logs } = await requestQuote(
+    { pickup: "Coleta", delivery: "Local" },
+    { env: { BASE_LAT: "-26.1", BASE_LON: "-49.1" } },
+  );
+  assert.equal(callsAt(calls, "/geocode/search").length, 2);
+  assert.equal(callsAt(calls, "/routing").length, 1);
+  assert.equal(logs[0].geocodingCalls, 2);
+  assert.equal(logs[0].routingCalls, 1);
+});
+
+test("cache adversarial inválido é ignorado sem alterar preço", async (t) => {
+  const variants = [
+    ["JSON inválido", () => new Response("{")],
+    ["objeto vazio", () => geoapifyResponse({})],
+    ["latitude inválida", () => geoapifyResponse({ lat: 91, lon: -49, city: "São Bento do Sul", localities: [] })],
+    ["longitude inválida", () => geoapifyResponse({ lat: -26, lon: -181, city: "São Bento do Sul", localities: [] })],
+    ["strings inesperadas", () => geoapifyResponse({ lat: "-26", lon: "-49", city: "São Bento do Sul", localities: [] })],
+    ["resposta antiga incompleta", () => geoapifyResponse({ lat: -26, lon: -49 })],
+  ];
+  for (const [name, response] of variants) {
+    await t.test(name, async () => {
+      const cache = { async match() { return response(); }, async put() {} };
+      const { response: result, body, calls } = await requestQuote(
+        { pickup: "Coleta", delivery: "Local" },
+        { cache, env: { BASE_LAT: "-26.1", BASE_LON: "-49.1" } },
+      );
+      assert.equal(result.status, 200);
+      assert.equal(body.price, 15);
+      assert.equal(callsAt(calls, "/geocode/search").length, 2);
+    });
+  }
+});
+
+test("resultado vazio ou inválido de geocoding não é gravado no cache", async (t) => {
+  for (const result of [[], [{ lat: "NaN", lon: -49, city: "São Bento do Sul" }]]) {
+    await t.test(JSON.stringify(result), async () => {
+      let puts = 0;
+      const cache = { async match() {}, async put() { puts += 1; } };
+      const { response } = await requestQuote(
+        { pickup: "Desconhecido", delivery: "Local" },
+        { cache, env: { BASE_LAT: "-26.1", BASE_LON: "-49.1" }, fetch(url) {
+          if (url.pathname.includes("geocode")) {
+            const isUnknown = url.searchParams.get("text") === "Desconhecido";
+            return geoapifyResponse({ results: isUnknown ? result : [pointsByAddress.Local] });
+          }
+          throw new Error("routing não deveria ocorrer");
+        } },
+      );
+      assert.equal(response.status, 422);
+      assert.equal(puts, 1);
+    });
+  }
+});
+
+test("payload malicioso não sobrescreve nenhum campo oficial", async () => {
+  const { body, calls } = await requestQuote({
+    pickup: "Coleta", delivery: "Local", price: 999, totalPrice: 999,
+    RATE_PER_KM: 999, tarifa: 999, basePrice: 999, includedKm: 999,
+    oneWayKm: 999, distanceKm: 999, totalKm: 999, routeType: "balanced",
+    mode: "truck", classification: "viagem", isOutsideSBS: true,
+    base: { lat: 0, lon: 0 }, BASE_LAT: 0, BASE_LON: 0,
+    ENDERECO_BASE: "Ataque", GEOAPIFY_API_KEY: "ataque",
+    pickupCoordinates: { lat: 0, lon: 0 }, deliveryCoordinates: { lat: 0, lon: 0 },
+    localities: ["Rio Natal"], extra: "permitido e ignorado",
+  });
+  assert.equal(body.price, 15);
+  assert.equal(body.totalPrice, 15);
+  assert.equal(body.deliveries[0].classification, "local");
+  const route = callsAt(calls, "/routing")[0];
+  assert.equal(route.searchParams.get("mode"), "motorcycle");
+  assert.equal(route.searchParams.get("type"), "short");
+  assert.equal(route.searchParams.get("apiKey"), "test-key");
+});
+
+test("entradas inválidas e bodies adversariais falham antes da Geoapify", async (t) => {
+  const bodies = [
+    undefined, null, 42, [], {}, { pickup: "" }, { pickup: "   ", delivery: "Local" },
+    { pickup: 7, delivery: "Local" }, { pickup: {}, delivery: "Local" },
+    { pickup: [], delivery: "Local" }, { pickup: "Coleta", delivery: null },
+    { pickup: "Coleta", delivery: [] }, { pickup: "Coleta", deliveries: [null] },
+    { pickup: "Coleta", deliveries: [{}] }, { pickup: "Coleta", deliveries: [["Local"]] },
+  ];
+  for (const body of bodies) {
+    await t.test(JSON.stringify(body), async () => {
+      const result = await requestQuote(body);
+      assert.equal(result.response.status, 400);
+      assert.equal(result.calls.length, 0);
+    });
+  }
+  const malformed = await requestQuote(null, { rawBody: "{não-json" });
+  assert.equal(malformed.response.status, 400);
+  assert.deepEqual(malformed.body, { error: "JSON inválido." });
+  assert.equal(malformed.calls.length, 0);
+});
+
+test("Unicode, espaços e caixa reutilizam geocoding mantendo entregas independentes", async () => {
+  const variants = ["  RUA ÁGUA   VERDE  ", "rua água verde", "RUA ÁGUA VERDE"];
+  const { response, body, calls } = await requestQuote(
+    { pickup: "Coleta", deliveries: variants },
+    { fetch(url) {
+      if (url.pathname.includes("geocode")) {
+        const address = url.searchParams.get("text");
+        const point = address === "Coleta" ? pointsByAddress.Coleta : pointsByAddress.Local;
+        return geoapifyResponse({ results: [point] });
+      }
+      return geoapifyResponse({ features: [{ properties: {
+        distance: 14_000, legs: [{ distance: 4_000 }, { distance: 6_000 }, { distance: 4_000 }],
+      } }] });
+    } },
+  );
+  assert.equal(response.status, 200);
+  assert.equal(callsAt(calls, "/geocode/search").length, 3);
+  assert.equal(callsAt(calls, "/routing").length, 3);
+  assert.deepEqual(body.deliveries.map(({ price }) => price), [15, 15, 15]);
+});
+
+test("CORS rejeita variações parecidas de protocolo, porta, prefixo, sufixo e subdomínio", async (t) => {
+  const origins = [
+    "http://app.example.test", "https://app.example.test:444",
+    "https://sub.app.example.test", "https://evil-app.example.test",
+    "https://app.example.test.evil.test",
+  ];
+  for (const origin of origins) {
+    await t.test(origin, async () => {
+      const { response, calls } = await requestQuote(
+        { pickup: "Coleta", delivery: "Local" },
+        { origin, env: { ALLOWED_ORIGINS: "https://app.example.test" } },
+      );
+      assert.equal(response.status, 403);
+      assert.equal(response.headers.get("Access-Control-Allow-Origin"), null);
+      assert.equal(calls.length, 0);
+    });
+  }
+});
+
+test("falhas externas e respostas de rota inválidas são controladas", async (t) => {
+  const cases = [
+    ["geocode HTTP", 500, (url) => url.pathname.includes("geocode")
+      ? new Response("erro sensível", { status: 503 }) : null],
+    ["routing HTTP", 500, (url) => url.pathname.includes("routing")
+      ? new Response("erro sensível", { status: 503 }) : defaultSynthetic(url)],
+    ["routing sem features", 502, (url) => url.pathname.includes("routing")
+      ? geoapifyResponse({}) : defaultSynthetic(url)],
+    ["routing sem legs local", 502, (url) => url.pathname.includes("routing")
+      ? geoapifyResponse({ features: [{ properties: { distance: 1000 } }] }) : defaultSynthetic(url)],
+    ["distância negativa", 502, (url) => url.pathname.includes("routing")
+      ? geoapifyResponse({ features: [{ properties: { distance: -1, legs: [{ distance: 1 }, { distance: 1 }] } }] }) : defaultSynthetic(url)],
+  ];
+  for (const [name, status, fetchMock] of cases) {
+    await t.test(name, async () => {
+      const { response, body, errorLogs } = await requestQuote(
+        { pickup: "Coleta", delivery: "Local" }, { fetch: fetchMock },
+      );
+      assert.equal(response.status, status);
+      assert.match(body.error, /^(Erro interno|Não foi possível)/);
+      assert.doesNotMatch(JSON.stringify({ body, errorLogs }), /test-key|Coleta|Local|Base|-26\./);
+    });
+  }
+});
+
+function defaultSynthetic(url) {
+  if (url.pathname.includes("geocode")) {
+    const point = pointsByAddress[url.searchParams.get("text")];
+    return geoapifyResponse({ results: point ? [point] : [] });
+  }
+  return geoapifyResponse({ features: [{ properties: {
+    distance: 14_000, legs: [{ distance: 4_000 }, { distance: 6_000 }, { distance: 4_000 }],
+  } }] });
+}
+
+test("telemetria contém somente contadores técnicos esperados", async () => {
+  const { logs } = await requestQuote({ pickup: "Coleta", deliveries: ["Local", "Externa"] });
+  assert.equal(logs.length, 1);
+  const telemetry = logs[0];
+  assert.deepEqual(Object.keys(telemetry).sort(), [
+    "deliveryCount", "durationMs", "event", "geocodeCacheHits", "geocodeCacheMisses",
+    "geocodingCalls", "routingCalls", "technicalErrors",
+  ]);
+  assert.equal(telemetry.deliveryCount, 2);
+  assert.equal(telemetry.geocodingCalls, 4);
+  assert.equal(telemetry.routingCalls, 2);
+  assert.equal(telemetry.geocodeCacheHits, 0);
+  assert.equal(telemetry.geocodeCacheMisses, 4);
+  assert.equal(telemetry.technicalErrors, 0);
+  assert.ok(Number.isFinite(telemetry.durationMs) && telemetry.durationMs >= 0);
+  assert.doesNotMatch(JSON.stringify(telemetry), /Coleta|Local|Externa|test-key|api\.geoapify|-26\./);
+});
+
+test("contratos legado e novo não expõem a base", async () => {
+  const legacy = await requestQuote({ pickup: "Coleta", delivery: "Local" });
+  assert.deepEqual(Object.keys(legacy.body).sort(), [
+    "deliveries", "delivery", "distance", "distanceKm", "distanceKmBalanced",
+    "distance_km", "km", "ok", "oneWayKm", "pickup", "price", "totalPrice",
+  ]);
+  const modern = await requestQuote({ pickup: "Coleta", deliveries: ["Local", "Externa"] });
+  assert.deepEqual(Object.keys(modern.body).sort(), ["deliveries", "ok", "totalPrice"]);
+  assert.equal(JSON.stringify(modern.body).includes('"base"'), false);
+});
+
+test("cenários históricos usam somente regras e distâncias sintéticas", () => {
+  assert.equal(calculatePrice(localPrice(10)), 15, "Centro de São Bento do Sul");
+  assert.equal(calculatePrice(localPrice(15)), 19, "Serra Alta");
+  assert.equal(calculatePrice(localPrice(16)), 20, "Cruzeiro");
+  assert.equal(calculatePrice(specialPrice("Rio Natal", 17)), 32, "Rio Natal");
+  assert.equal(calculatePrice(externalPrice(30.2)), 34, "Campo Alegre");
+  assert.equal(calculatePrice(externalPrice(147.5)), 163, "viagem mais longa");
 });
