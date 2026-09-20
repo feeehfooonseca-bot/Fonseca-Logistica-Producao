@@ -1376,11 +1376,10 @@ main{margin:0!important;padding:0!important}
  }
 })();
 </script>
-<script type="module">
-import { requestOfficialQuote } from "./frontend-quote.mjs";
-
+<script>
 (()=>{
  // V21.12 V1.6: frontend exibe exclusivamente o orçamento oficial retornado pelo Worker.
+ const ROUTE_API='https://fonseca-logistica-api.fonsecalogistica047.workers.dev';
  const WA='554792030653';
  const $=id=>document.getElementById(id);
  let whenMode='now', invoiceMode=null, deliveryCount=1;
@@ -1397,6 +1396,7 @@ import { requestOfficialQuote } from "./frontend-quote.mjs";
  function fmtBRL(v){return Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
  function fmtWhen(){if(whenMode==='now')return'Agora';const d=$('dcDate').value,t=$('dcTime').value;if(!d||!t)throw new Error('Informe a data e o horário da coleta.');const[y,m,day]=d.split('-');return`${day}/${m}/${y} às ${t}`}
  function deliveryInputs(){return [...$('deliveryFields').querySelectorAll('.delivery-block')].map((b,i)=>({index:i+1,address:b.querySelector('.delivery-address').value.trim(),ref:b.querySelector('.delivery-ref').value.trim()}));}
+ async function requestOfficialQuote(pickup,deliveries){let response;try{response=await fetch(ROUTE_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pickup,deliveries:deliveries.map(({address})=>address)})})}catch(_){throw new Error('Não foi possível conectar ao serviço de orçamento. Tente novamente.')}let quote={};try{quote=await response.json()}catch(_){}if(!response.ok)throw new Error(typeof quote.error==='string'&&quote.error?quote.error:'Não foi possível localizar os endereços e calcular a rota.');const validDeliveries=quote.ok===true&&Array.isArray(quote.deliveries)&&quote.deliveries.length===deliveries.length&&quote.deliveries.every((delivery,index)=>delivery&&delivery.address===deliveries[index].address&&Number.isSafeInteger(delivery.price)&&Number.isFinite(delivery.distanceKm)&&delivery.price>=0&&delivery.distanceKm>=0);const individualTotal=validDeliveries?quote.deliveries.reduce((total,delivery)=>total+delivery.price,0):NaN;if(!validDeliveries||!Number.isSafeInteger(quote.totalPrice)||quote.totalPrice<0||quote.totalPrice!==individualTotal)throw new Error('O servidor retornou um orçamento inválido. Tente novamente.');return quote;}
  $('dcCalculate').addEventListener('click',async()=>{
    $('dcResult').classList.remove('show');$('dcWhatsapp').classList.remove('show');const calcBtn=$('dcCalculate');
    try{

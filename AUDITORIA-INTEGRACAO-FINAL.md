@@ -18,8 +18,9 @@ Foram adicionados testes determinísticos do payload, uma e múltiplas entregas,
 preços individuais, soma, ordem divergente e erros HTTP/JSON/rede, todos com `fetch`
 simulado e sem chamadas externas. Um teste integrado também passa a resposta do Worker
 real, com Geoapify simulada, diretamente ao cliente do frontend e confirma ordem,
-cálculos individuais e soma. O arquivo `TESTE-LOCAL-CELULAR.html` usa o mesmo
-módulo de contrato do frontend oficial para evitar divergência entre as duas cópias.
+cálculos individuais e soma. O arquivo `TESTE-LOCAL-CELULAR.html` incorpora somente o
+cliente HTTP e a validação desse contrato, sem import externo, para continuar abrindo
+diretamente como arquivo standalone; nenhuma regra comercial foi copiada para ele.
 
 ## Baseline preservado
 

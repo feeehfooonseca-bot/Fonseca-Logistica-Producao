@@ -157,3 +157,12 @@ test("propaga erro controlado do Worker e trata resposta não JSON", async () =>
     /^Error: Não foi possível conectar ao serviço de orçamento\. Tente novamente\.$/,
   );
 });
+
+test("HTML local inicializa a calculadora sem depender de módulo externo", async () => {
+  const localHtml = await readFile(new URL("./TESTE-LOCAL-CELULAR.html", import.meta.url), "utf8");
+  assert.doesNotMatch(localHtml, /import\s+\{?\s*requestOfficialQuote/);
+  assert.doesNotMatch(localHtml, /src=["'][^"']*frontend-quote\.mjs/);
+  assert.doesNotMatch(localHtml, /<script\s+type=["']module["'][^>]*>/);
+  assert.match(localHtml, /async function requestOfficialQuote\(pickup,deliveries\)/);
+  assert.match(localHtml, /await requestOfficialQuote\(pickup,deliveries\)/);
+});
