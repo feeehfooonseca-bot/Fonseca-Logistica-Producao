@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { ROUTE_API, requestOfficialQuote } from "./frontend-quote.mjs";
@@ -49,6 +50,7 @@ test("rejeita quantidade, valores e soma incompatíveis", async (t) => {
     { ok: true, deliveries: [], totalPrice: 0 },
     { ok: false, deliveries: [{ address: "Entrega", price: 15, distanceKm: 14 }], totalPrice: 15 },
     { ok: true, deliveries: [{ address: "Entrega", price: "15", distanceKm: 14 }], totalPrice: 15 },
+    { ok: true, deliveries: [{ address: "Entrega", price: 15.5, distanceKm: 14 }], totalPrice: 15.5 },
     { ok: true, deliveries: [{ address: "Entrega", price: 15, distanceKm: -1 }], totalPrice: 15 },
     { ok: true, deliveries: [{ address: "Entrega", price: 15, distanceKm: 14 }], totalPrice: 16 },
   ];
@@ -60,6 +62,60 @@ test("rejeita quantidade, valores e soma incompatíveis", async (t) => {
         /orçamento inválido/,
       );
     });
+  }
+});
+
+test("contrato real frontend e Worker preserva ordem, cálculo individual e soma", async () => {
+  const workerSource = await readFile(new URL("./worker.js", import.meta.url), "utf8");
+  const worker = await import(
+    `data:text/javascript;base64,${Buffer.from(workerSource).toString("base64")}`
+  );
+  const points = {
+    Coleta: { lat: -26.2, lon: -49.2, city: "São Bento do Sul" },
+    Local: { lat: -26.3, lon: -49.3, city: "São Bento do Sul" },
+    Externa: { lat: -26.4, lon: -49.4, city: "Campo Alegre" },
+  };
+  const originalFetch = globalThis.fetch;
+  const originalCaches = globalThis.caches;
+  const originalLog = console.log;
+  const originalError = console.error;
+  delete globalThis.caches;
+  console.log = () => {};
+  console.error = () => {};
+  globalThis.fetch = async (input) => {
+    const url = new URL(input);
+    if (url.pathname === "/v1/geocode/search") {
+      return response({ results: [points[url.searchParams.get("text")]] });
+    }
+    const deliveryLat = url.searchParams.get("waypoints").split("|")[2].split(",")[0];
+    const route = deliveryLat === "-26.3"
+      ? { distance: 14_000, legs: [4_000, 6_000, 4_000] }
+      : { distance: 30_100, legs: [2_600, 4_500, 23_000] };
+    return response({ features: [{ properties: {
+      distance: route.distance,
+      legs: route.legs.map((distance) => ({ distance })),
+    } }] });
+  };
+
+  try {
+    const quote = await requestOfficialQuote(
+      "Coleta",
+      [{ address: "Externa" }, { address: "Local" }],
+      (url, init) => worker.default.fetch(new Request(url, init), {
+        GEOAPIFY_API_KEY: "test-key",
+        BASE_LAT: "-26.1",
+        BASE_LON: "-49.1",
+      }),
+    );
+    assert.deepEqual(quote.deliveries.map(({ address }) => address), ["Externa", "Local"]);
+    assert.deepEqual(quote.deliveries.map(({ price }) => price), [34, 15]);
+    assert.equal(quote.totalPrice, 49);
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.log = originalLog;
+    console.error = originalError;
+    if (originalCaches === undefined) delete globalThis.caches;
+    else globalThis.caches = originalCaches;
   }
 });
 

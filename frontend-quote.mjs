@@ -35,7 +35,7 @@ export async function requestOfficialQuote(pickup, deliveries, fetchImpl = fetch
       (delivery, index) =>
         delivery &&
         delivery.address === deliveries[index].address &&
-        Number.isFinite(delivery.price) &&
+        Number.isSafeInteger(delivery.price) &&
         Number.isFinite(delivery.distanceKm) &&
         delivery.price >= 0 &&
         delivery.distanceKm >= 0,
@@ -46,7 +46,7 @@ export async function requestOfficialQuote(pickup, deliveries, fetchImpl = fetch
 
   if (
     !validDeliveries ||
-    !Number.isFinite(quote.totalPrice) ||
+    !Number.isSafeInteger(quote.totalPrice) ||
     quote.totalPrice < 0 ||
     quote.totalPrice !== individualTotal
   ) {
