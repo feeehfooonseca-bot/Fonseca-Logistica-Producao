@@ -1,5 +1,15 @@
 const RATE_PER_KM = 1.1;
 const GEOCODE_CACHE_TTL_SECONDS = 86400;
+const GEOCODE_MIN_CONFIDENCE = 0.2;
+const GEOCODE_MIN_CITY_CONFIDENCE = 0.5;
+const GEOCODE_MIN_STREET_CONFIDENCE = 0.5;
+const LOW_PRECISION_GEOCODE_RESULT_TYPES = new Set([
+  "unknown", "suburb", "district", "postcode", "city", "county", "state", "country",
+]);
+const LOW_PRECISION_GEOCODE_MATCH_TYPES = new Set([
+  "match_by_postcode", "match_by_city_or_disrict", "match_by_city_or_district",
+  "match_by_country_or_state",
+]);
 
 const SPECIAL_REGIONS = [
   { name: "rio_vermelho_estacao", match: "rio vermelho estacao", basePrice: 25, includedKm: 12 },
@@ -95,10 +105,18 @@ export default {
         return json({ error: "Não foi possível localizar a base." }, 422, corsHeaders);
       }
       if (!pickupPoint) {
-        return json({ error: "Falha ao localizar endereço de coleta." }, 422, corsHeaders);
+        return json(
+          { error: "Não foi possível confirmar o endereço de coleta. Confira rua, número e cidade." },
+          422,
+          corsHeaders,
+        );
       }
       if (deliveryPoints.some((point) => !point)) {
-        return json({ error: "Falha ao localizar endereço de entrega." }, 422, corsHeaders);
+        return json(
+          { error: "Não foi possível confirmar o endereço de entrega. Confira rua, número e cidade." },
+          422,
+          corsHeaders,
+        );
       }
 
       const pickupIsOutsideSBS = normalizeText(pickupPoint.city) !== "sao bento do sul";
@@ -315,8 +333,9 @@ async function geocode(address, apiKey, telemetry) {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Erro Geoapify geocode: ${response.status}`);
 
-  const result = (await response.json())?.results?.[0];
-  if (!result) return null;
+  const payload = await response.json();
+  const result = payload?.results?.[0];
+  if (!isAcceptableGeocodeResult(result)) return null;
   const point = {
     lat: Number(result.lat),
     lon: Number(result.lon),
@@ -353,7 +372,28 @@ async function geocodeCacheRequest(address) {
   const hash = [...new Uint8Array(digest)]
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
-  return new Request(`https://geocode-cache.invalid/v1/${hash}`);
+  return new Request(`https://geocode-cache.invalid/v2/${hash}`);
+}
+
+function isAcceptableGeocodeResult(result) {
+  if (!validPoint(result)) return false;
+
+  const rank = result?.rank;
+  if (!rank || typeof rank !== "object") return false;
+
+  const confidence = Number(rank.confidence);
+  const cityConfidence = Number(rank.confidence_city_level);
+  const streetConfidence = Number(rank.confidence_street_level);
+  const resultType = String(result.result_type || "").toLowerCase();
+  const matchType = String(rank.match_type || "").toLowerCase();
+
+  if (!Number.isFinite(confidence) || confidence < GEOCODE_MIN_CONFIDENCE) return false;
+  if (LOW_PRECISION_GEOCODE_RESULT_TYPES.has(resultType)) return false;
+  if (LOW_PRECISION_GEOCODE_MATCH_TYPES.has(matchType)) return false;
+  if (Number.isFinite(cityConfidence) && cityConfidence < GEOCODE_MIN_CITY_CONFIDENCE) return false;
+  if (Number.isFinite(streetConfidence) && streetConfidence < GEOCODE_MIN_STREET_CONFIDENCE) return false;
+
+  return true;
 }
 
 function validPoint(point) {
