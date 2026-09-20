@@ -1376,10 +1376,11 @@ main{margin:0!important;padding:0!important}
  }
 })();
 </script>
-<script>
+<script type="module">
+import { requestOfficialQuote } from "./frontend-quote.mjs";
+
 (()=>{
  // V21.12 V1.6: frontend exibe exclusivamente o orçamento oficial retornado pelo Worker.
- const ROUTE_API='https://fonseca-logistica-api.fonsecalogistica047.workers.dev';
  const WA='554792030653';
  const $=id=>document.getElementById(id);
  let whenMode='now', invoiceMode=null, deliveryCount=1;
@@ -1396,7 +1397,6 @@ main{margin:0!important;padding:0!important}
  function fmtBRL(v){return Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
  function fmtWhen(){if(whenMode==='now')return'Agora';const d=$('dcDate').value,t=$('dcTime').value;if(!d||!t)throw new Error('Informe a data e o horário da coleta.');const[y,m,day]=d.split('-');return`${day}/${m}/${y} às ${t}`}
  function deliveryInputs(){return [...$('deliveryFields').querySelectorAll('.delivery-block')].map((b,i)=>({index:i+1,address:b.querySelector('.delivery-address').value.trim(),ref:b.querySelector('.delivery-ref').value.trim()}));}
- async function officialQuote(pickup,deliveries){const r=await fetch(ROUTE_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pickup,deliveries:deliveries.map(x=>x.address)})});let j={};try{j=await r.json()}catch(_){}if(!r.ok)throw new Error(j.error||'Não foi possível localizar os endereços e calcular a rota.');if(!Array.isArray(j.deliveries)||j.deliveries.length!==deliveries.length||!Number.isFinite(Number(j.totalPrice)))throw new Error('O servidor retornou um orçamento inválido. Tente novamente.');return j;}
  $('dcCalculate').addEventListener('click',async()=>{
    $('dcResult').classList.remove('show');$('dcWhatsapp').classList.remove('show');const calcBtn=$('dcCalculate');
    try{
@@ -1404,7 +1404,7 @@ main{margin:0!important;padding:0!important}
      if(!name||!pickup||!item||deliveries.some(x=>!x.address))throw new Error('Preencha nome, coleta, todas as entregas e o que será transportado.');
      if(!invoiceMode)throw new Error('Informe se precisa de Nota Fiscal.');
      const when=fmtWhen(),pref=$('dcPickupRef').value.trim();status(`Calculando ${deliveries.length} entrega${deliveries.length>1?'s':''}…`);calcBtn.disabled=true;calcBtn.textContent='Calculando rota…';
-     const quote=await officialQuote(pickup,deliveries);
+     const quote=await requestOfficialQuote(pickup,deliveries);
      const results=deliveries.map((d,i)=>({...d,...quote.deliveries[i],price:Number(quote.deliveries[i].price),km:Number(quote.deliveries[i].distanceKm),oneWayKm:Number(quote.deliveries[i].oneWayKm)}));
      if(results.some(x=>!Number.isFinite(x.price)||!Number.isFinite(x.km)))throw new Error('O servidor retornou dados inválidos. Tente novamente.');
      const total=Number(quote.totalPrice),totalKm=results.reduce((a,x)=>a+x.km,0);

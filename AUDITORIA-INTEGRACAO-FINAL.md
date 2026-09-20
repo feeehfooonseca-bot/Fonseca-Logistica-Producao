@@ -9,11 +9,15 @@ de forma independente, preserva a ordem e retorna `deliveries` e `totalPrice`.
 
 A integração já usava exclusivamente preços e distâncias oficiais do Worker. A única
 correção necessária foi tornar a validação da resposta explícita antes de exibi-la:
-quantidade, preço e distância de cada entrega, total e igualdade entre o total e a
-soma dos preços individuais. Não foi adicionada nenhuma regra comercial ao navegador.
+sucesso declarado pelo Worker, quantidade e ordem dos endereços, preço e distância de
+cada entrega, total e igualdade entre o total e a soma dos preços individuais. Falhas
+de rede também recebem uma mensagem pública controlada. Não foi adicionada nenhuma
+regra comercial ao navegador.
 
 Foram adicionados testes determinísticos do payload, uma e múltiplas entregas, ordem,
-preços individuais, soma e erros, todos com `fetch` simulado e sem chamadas externas.
+preços individuais, soma, ordem divergente e erros HTTP/JSON/rede, todos com `fetch`
+simulado e sem chamadas externas. O arquivo `TESTE-LOCAL-CELULAR.html` usa o mesmo
+módulo de contrato do frontend oficial para evitar divergência entre as duas cópias.
 
 ## Baseline preservado
 

@@ -46,10 +46,11 @@ test("preserva múltiplas entregas, ordem, preços individuais e soma oficial", 
 
 test("rejeita quantidade, valores e soma incompatíveis", async (t) => {
   const invalidQuotes = [
-    { deliveries: [], totalPrice: 0 },
-    { deliveries: [{ price: "15", distanceKm: 14 }], totalPrice: 15 },
-    { deliveries: [{ price: 15, distanceKm: -1 }], totalPrice: 15 },
-    { deliveries: [{ price: 15, distanceKm: 14 }], totalPrice: 16 },
+    { ok: true, deliveries: [], totalPrice: 0 },
+    { ok: false, deliveries: [{ address: "Entrega", price: 15, distanceKm: 14 }], totalPrice: 15 },
+    { ok: true, deliveries: [{ address: "Entrega", price: "15", distanceKm: 14 }], totalPrice: 15 },
+    { ok: true, deliveries: [{ address: "Entrega", price: 15, distanceKm: -1 }], totalPrice: 15 },
+    { ok: true, deliveries: [{ address: "Entrega", price: 15, distanceKm: 14 }], totalPrice: 16 },
   ];
 
   for (const quote of invalidQuotes) {
@@ -60,6 +61,24 @@ test("rejeita quantidade, valores e soma incompatíveis", async (t) => {
       );
     });
   }
+});
+
+test("rejeita resposta que não preserva a ordem das entregas", async () => {
+  await assert.rejects(
+    requestOfficialQuote(
+      "Coleta",
+      [{ address: "Entrega A" }, { address: "Entrega B" }],
+      async () => response({
+        ok: true,
+        deliveries: [
+          { address: "Entrega B", price: 17, distanceKm: 18 },
+          { address: "Entrega A", price: 15, distanceKm: 14 },
+        ],
+        totalPrice: 32,
+      }),
+    ),
+    /orçamento inválido/,
+  );
 });
 
 test("propaga erro controlado do Worker e trata resposta não JSON", async () => {
@@ -74,5 +93,11 @@ test("propaga erro controlado do Worker e trata resposta não JSON", async () =>
       async json() { throw new SyntaxError("invalid JSON"); },
     })),
     /Não foi possível localizar/,
+  );
+  await assert.rejects(
+    requestOfficialQuote("Coleta", [{ address: "Entrega" }], async () => {
+      throw new TypeError("detalhe interno da rede");
+    }),
+    /^Error: Não foi possível conectar ao serviço de orçamento\. Tente novamente\.$/,
   );
 });

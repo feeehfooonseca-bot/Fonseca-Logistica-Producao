@@ -1,11 +1,16 @@
 export const ROUTE_API = "https://fonseca-logistica-api.fonsecalogistica047.workers.dev";
 
 export async function requestOfficialQuote(pickup, deliveries, fetchImpl = fetch) {
-  const response = await fetchImpl(ROUTE_API, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ pickup, deliveries: deliveries.map(({ address }) => address) }),
-  });
+  let response;
+  try {
+    response = await fetchImpl(ROUTE_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pickup, deliveries: deliveries.map(({ address }) => address) }),
+    });
+  } catch {
+    throw new Error("Não foi possível conectar ao serviço de orçamento. Tente novamente.");
+  }
 
   let quote = {};
   try {
@@ -23,11 +28,13 @@ export async function requestOfficialQuote(pickup, deliveries, fetchImpl = fetch
   }
 
   const validDeliveries =
+    quote.ok === true &&
     Array.isArray(quote.deliveries) &&
     quote.deliveries.length === deliveries.length &&
     quote.deliveries.every(
-      (delivery) =>
+      (delivery, index) =>
         delivery &&
+        delivery.address === deliveries[index].address &&
         Number.isFinite(delivery.price) &&
         Number.isFinite(delivery.distanceKm) &&
         delivery.price >= 0 &&
