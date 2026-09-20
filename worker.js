@@ -19,15 +19,23 @@ export default {
       geocodeCacheMisses: 0,
       technicalErrors: 0,
     };
-    const corsHeaders = {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-      "Access-Control-Max-Age": "86400",
-    };
+    const origin = request.headers.get("Origin");
+    const corsHeaders = corsHeadersFor(origin, env.ALLOWED_ORIGINS);
+
+    if (origin && !corsHeaders) {
+      return json({ error: "Origem não autorizada." }, 403);
+    }
 
     if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: corsHeaders });
+      return new Response(null, {
+        status: 204,
+        headers: {
+          ...corsHeaders,
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+          "Access-Control-Max-Age": "86400",
+        },
+      });
     }
 
     if (request.method !== "POST") {
@@ -36,12 +44,12 @@ export default {
 
     try {
       if (!env.GEOAPIFY_API_KEY) {
-        return json({ error: "GEOAPIFY_API_KEY não configurada." }, 500, corsHeaders);
+        return json({ error: "Serviço temporariamente indisponível." }, 500, corsHeaders);
       }
 
       const configuredBase = readBaseCoordinates(env);
       if (!configuredBase && !validAddress(env.ENDERECO_BASE)) {
-        return json({ error: "ENDERECO_BASE não configurado." }, 500, corsHeaders);
+        return json({ error: "Serviço temporariamente indisponível." }, 500, corsHeaders);
       }
 
       let body;
@@ -163,16 +171,15 @@ export default {
           km: result.distanceKm,
           distance: result.distanceKm,
           distance_km: result.distanceKm,
-          base: { lat: base.lat, lon: base.lon },
           pickup: { lat: pickupPoint.lat, lon: pickupPoint.lon },
           delivery: result.delivery,
         });
       }
 
       return json(response, 200, corsHeaders);
-    } catch (error) {
+    } catch {
       telemetry.technicalErrors += 1;
-      console.error(error);
+      console.error(JSON.stringify({ event: "quote_error", type: "internal" }));
       return json({ error: "Erro interno ao calcular a rota." }, 500, corsHeaders);
     } finally {
       console.log(JSON.stringify({
@@ -210,6 +217,31 @@ export function calculatePrice({
 
 function validAddress(value) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function corsHeadersFor(origin, configuredOrigins) {
+  if (!origin) return {};
+
+  const allowedOrigins = String(configuredOrigins || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(isCanonicalWebOrigin);
+
+  if (!allowedOrigins.includes(origin)) return null;
+  return {
+    "Access-Control-Allow-Origin": origin,
+    Vary: "Origin",
+  };
+}
+
+function isCanonicalWebOrigin(value) {
+  if (!value || value === "*") return false;
+  try {
+    const parsed = new URL(value);
+    return (parsed.protocol === "https:" || parsed.protocol === "http:") && parsed.origin === value;
+  } catch {
+    return false;
+  }
 }
 
 function identifySpecialRegion(deliveryLocalities, deliveryAddress) {

@@ -80,9 +80,12 @@ async function requestQuote(body, options = {}) {
   const originalFetch = globalThis.fetch;
   const originalCaches = globalThis.caches;
   const originalConsoleLog = console.log;
+  const originalConsoleError = console.error;
+  const errorLogs = [];
   if (options.cache) globalThis.caches = { default: options.cache };
   else delete globalThis.caches;
   console.log = (message) => logs.push(JSON.parse(message));
+  console.error = (message) => errorLogs.push(JSON.parse(message));
   globalThis.fetch = async (input) => {
     const url = new URL(input);
     calls.push(url);
@@ -102,11 +105,14 @@ async function requestQuote(body, options = {}) {
   };
 
   try {
+    const headers = { "Content-Type": "application/json", ...options.headers };
+    if (options.origin) headers.Origin = options.origin;
+    const method = options.method || "POST";
     const response = await workerModule.default.fetch(
       new Request("https://worker.example.test/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        method,
+        headers,
+        body: method === "POST" ? JSON.stringify(body) : undefined,
       }),
       {
         GEOAPIFY_API_KEY: "test-key",
@@ -114,10 +120,12 @@ async function requestQuote(body, options = {}) {
         ...options.env,
       },
     );
-    return { response, body: await response.json(), calls, logs };
+    const responseBody = response.status === 204 ? null : await response.json();
+    return { response, body: responseBody, calls, logs, errorLogs };
   } finally {
     globalThis.fetch = originalFetch;
     console.log = originalConsoleLog;
+    console.error = originalConsoleError;
     if (originalCaches === undefined) delete globalThis.caches;
     else globalThis.caches = originalCaches;
   }
@@ -147,8 +155,130 @@ test("formato legado preserva contrato, ignora preço cliente e usa SHORT motorc
   assert.equal(body.distanceKmBalanced, null);
   assert.equal(body.km, 14);
   assert.deepEqual(body.delivery, { lat: -26.3, lon: -49.3 });
+  assert.equal(body.base, undefined);
   assert.equal(body.deliveries[0].classification, "local");
   assert.notEqual(body.price, 1);
+});
+
+test("origin permitido recebe CORS sem wildcard", async () => {
+  const { response } = await requestQuote(
+    { pickup: "Coleta", delivery: "Local" },
+    { origin: "https://app.example.test", env: { ALLOWED_ORIGINS: "https://app.example.test" } },
+  );
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("Access-Control-Allow-Origin"), "https://app.example.test");
+  assert.equal(response.headers.get("Vary"), "Origin");
+  assert.notEqual(response.headers.get("Access-Control-Allow-Origin"), "*");
+});
+
+test("origin não permitido ou parecido é rejeitado antes de chamadas externas", async (t) => {
+  for (const origin of ["https://evil.example", "https://app.example.test.evil.example"]) {
+    await t.test(origin, async () => {
+      const { response, body, calls } = await requestQuote(
+        { pickup: "Coleta", delivery: "Local" },
+        { origin, env: { ALLOWED_ORIGINS: "https://app.example.test" } },
+      );
+      assert.equal(response.status, 403);
+      assert.deepEqual(body, { error: "Origem não autorizada." });
+      assert.equal(response.headers.get("Access-Control-Allow-Origin"), null);
+      assert.equal(calls.length, 0);
+    });
+  }
+});
+
+test("requisição sem Origin continua funcionando sem header CORS", async () => {
+  const { response, body } = await requestQuote(
+    { pickup: "Coleta", delivery: "Local" },
+    { env: { ALLOWED_ORIGINS: "https://app.example.test" } },
+  );
+  assert.equal(response.status, 200);
+  assert.equal(body.price, 15);
+  assert.equal(response.headers.get("Access-Control-Allow-Origin"), null);
+});
+
+test("OPTIONS autorizado responde ao preflight somente com CORS necessário", async () => {
+  const { response, calls } = await requestQuote(null, {
+    method: "OPTIONS",
+    origin: "https://app.example.test",
+    headers: { "Access-Control-Request-Method": "POST" },
+    env: { ALLOWED_ORIGINS: "https://app.example.test" },
+  });
+  assert.equal(response.status, 204);
+  assert.equal(response.headers.get("Access-Control-Allow-Origin"), "https://app.example.test");
+  assert.equal(response.headers.get("Access-Control-Allow-Methods"), "POST, OPTIONS");
+  assert.equal(response.headers.get("Access-Control-Allow-Headers"), "Content-Type");
+  assert.equal(calls.length, 0);
+});
+
+test("OPTIONS não autorizado não libera CORS", async () => {
+  const { response, calls } = await requestQuote(null, {
+    method: "OPTIONS",
+    origin: "https://evil.example",
+    env: { ALLOWED_ORIGINS: "https://app.example.test" },
+  });
+  assert.equal(response.status, 403);
+  assert.equal(response.headers.get("Access-Control-Allow-Origin"), null);
+  assert.equal(response.headers.get("Access-Control-Allow-Methods"), null);
+  assert.equal(calls.length, 0);
+});
+
+test("múltiplos origins configurados são comparados de forma exata", async (t) => {
+  const configured = "https://app.example.test, https://www.example.test:8443";
+  for (const origin of ["https://app.example.test", "https://www.example.test:8443"]) {
+    await t.test(origin, async () => {
+      const { response } = await requestQuote(
+        { pickup: "Coleta", delivery: "Local" },
+        { origin, env: { ALLOWED_ORIGINS: configured } },
+      );
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get("Access-Control-Allow-Origin"), origin);
+    });
+  }
+});
+
+test("configuração CORS malformada ou wildcard nunca abre o acesso", async (t) => {
+  for (const configured of ["*", "not-a-url", "https://app.example.test/path", ", ,"] ) {
+    await t.test(configured, async () => {
+      const { response, calls } = await requestQuote(
+        { pickup: "Coleta", delivery: "Local" },
+        { origin: "https://app.example.test", env: { ALLOWED_ORIGINS: configured } },
+      );
+      assert.equal(response.status, 403);
+      assert.notEqual(response.headers.get("Access-Control-Allow-Origin"), "*");
+      assert.equal(calls.length, 0);
+    });
+  }
+});
+
+test("campos controlados pelo cliente não alteram cálculo, rota ou credenciais", async () => {
+  const injected = {
+    pickup: "Coleta",
+    delivery: "Local",
+    price: 999,
+    totalPrice: 999,
+    RATE_PER_KM: 999,
+    oneWayKm: 999,
+    totalKm: 999,
+    routeType: "balanced",
+    mode: "car",
+    isOutsideSBS: true,
+    base: { lat: 1, lon: 2 },
+    pickupCoordinates: { lat: 3, lon: 4 },
+    deliveryCoordinates: { lat: 5, lon: 6 },
+    GEOAPIFY_API_KEY: "client-key",
+  };
+  const { body, calls } = await requestQuote(injected);
+  const routing = callsAt(calls, "/routing")[0];
+  assert.equal(body.price, 15);
+  assert.equal(body.totalPrice, 15);
+  assert.equal(body.oneWayKm, 10);
+  assert.equal(body.distanceKm, 14);
+  assert.equal(body.deliveries[0].classification, "local");
+  assert.equal(body.deliveries[0].routeType, "short");
+  assert.equal(routing.searchParams.get("type"), "short");
+  assert.equal(routing.searchParams.get("mode"), "motorcycle");
+  assert.equal(routing.searchParams.get("apiKey"), "test-key");
+  assert.ok(routing.searchParams.get("waypoints").startsWith("-26.1,-49.1|-26.2,-49.2"));
 });
 
 test("novo formato aceita uma entrega", async () => {
@@ -319,6 +449,40 @@ test("falha de cache não impede orçamento e é contabilizada", async () => {
   assert.equal(body.price, 15);
   assert.equal(callsAt(calls, "/geocode/search").length, 2);
   assert.equal(logs[0].technicalErrors, 4);
+});
+
+test("falha externa retorna e registra somente informações controladas", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalConsoleLog = console.log;
+  const originalConsoleError = console.error;
+  const logs = [];
+  const errors = [];
+  delete globalThis.caches;
+  console.log = (message) => logs.push(message);
+  console.error = (message) => errors.push(message);
+  globalThis.fetch = async () => {
+    throw new Error("https://api.geoapify.com/private?apiKey=secret&text=endereco-cliente");
+  };
+
+  try {
+    const response = await workerModule.default.fetch(
+      new Request("https://worker.example.test/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pickup: "Coleta", delivery: "Local" }),
+      }),
+      { GEOAPIFY_API_KEY: "secret", ENDERECO_BASE: "Base" },
+    );
+    assert.equal(response.status, 500);
+    assert.deepEqual(await response.json(), { error: "Erro interno ao calcular a rota." });
+    const output = [...logs, ...errors].join("\n");
+    assert.doesNotMatch(output, /secret|endereco-cliente|api\.geoapify\.com|Coleta|Local|Base/);
+    assert.deepEqual(JSON.parse(errors[0]), { event: "quote_error", type: "internal" });
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.log = originalConsoleLog;
+    console.error = originalConsoleError;
+  }
 });
 
 test("rejeita deliveries vazio, endereço vazio, tipo inválido ou ausência de entrega", async (t) => {
