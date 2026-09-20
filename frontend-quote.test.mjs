@@ -70,10 +70,22 @@ test("contrato real frontend e Worker preserva ordem, cálculo individual e soma
   const worker = await import(
     `data:text/javascript;base64,${Buffer.from(workerSource).toString("base64")}`
   );
+  const geocodePoint = (lat, lon, city) => ({
+    lat,
+    lon,
+    city,
+    result_type: "street",
+    rank: {
+      confidence: 1,
+      confidence_city_level: 1,
+      confidence_street_level: 1,
+      match_type: "full_match",
+    },
+  });
   const points = {
-    Coleta: { lat: -26.2, lon: -49.2, city: "São Bento do Sul" },
-    Local: { lat: -26.3, lon: -49.3, city: "São Bento do Sul" },
-    Externa: { lat: -26.4, lon: -49.4, city: "Campo Alegre" },
+    Coleta: geocodePoint(-26.2, -49.2, "São Bento do Sul"),
+    Local: geocodePoint(-26.3, -49.3, "São Bento do Sul"),
+    Externa: geocodePoint(-26.4, -49.4, "Campo Alegre"),
   };
   const originalFetch = globalThis.fetch;
   const originalCaches = globalThis.caches;
