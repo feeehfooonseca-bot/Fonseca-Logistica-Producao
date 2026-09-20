@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://fonsecalog.com.br/sitemap.xml
