@@ -71,7 +71,23 @@ const routeByDeliveryLat = {
 };
 
 function geoapifyResponse(body) {
-  return new Response(JSON.stringify(body), { status: 200 });
+  const normalized = Array.isArray(body?.results)
+    ? {
+        ...body,
+        results: body.results.map((point) => ({
+          result_type: "street",
+          ...point,
+          rank: {
+            confidence: 1,
+            confidence_city_level: 1,
+            confidence_street_level: 1,
+            match_type: "full_match",
+            ...(point?.rank || {}),
+          },
+        })),
+      }
+    : body;
+  return new Response(JSON.stringify(normalized), { status: 200 });
 }
 
 async function requestQuote(body, options = {}) {
@@ -792,4 +808,89 @@ test("cenários históricos usam somente regras e distâncias sintéticas", () =
   assert.equal(calculatePrice(specialPrice("Rio Natal", 17)), 32, "Rio Natal");
   assert.equal(calculatePrice(externalPrice(30.2)), 34, "Campo Alegre");
   assert.equal(calculatePrice(externalPrice(147.5)), 163, "viagem mais longa");
+});
+
+
+test("rejeita resultado Geoapify que só corresponde à cidade ou CEP", async () => {
+  const fakeAddress = "Rua XYZQWERTY Inexistente, 99999, Sao Bento do Sul - SC";
+  const { response, body, calls } = await requestQuote(
+    { pickup: "Coleta", delivery: fakeAddress },
+    {
+      env: { BASE_LAT: "-26.1", BASE_LON: "-49.1" },
+      fetch(url) {
+        if (url.pathname.includes("geocode")) {
+          const address = url.searchParams.get("text");
+          if (address === fakeAddress) {
+            return geoapifyResponse({ results: [{
+              lat: -26.25,
+              lon: -49.38,
+              city: "São Bento do Sul",
+              result_type: "city",
+              rank: {
+                confidence: 0.15,
+                confidence_city_level: 1,
+                confidence_street_level: 0,
+                match_type: "match_by_city_or_disrict",
+              },
+            }] });
+          }
+          return geoapifyResponse({ results: [pointsByAddress.Coleta] });
+        }
+        throw new Error("routing não deveria ocorrer");
+      },
+    },
+  );
+  assert.equal(response.status, 422);
+  assert.match(body.error, /confirmar o endereço de entrega/i);
+  assert.equal(callsAt(calls, "/routing").length, 0);
+});
+
+test("aceita estrada rural sem número quando a rua e a cidade têm boa correspondência", async () => {
+  const ruralAddress = "Estrada Floresta, s/n, Rio Natal, Sao Bento do Sul - SC, 89293-899";
+  const { response, body } = await requestQuote(
+    { pickup: "Coleta", delivery: ruralAddress },
+    {
+      env: { BASE_LAT: "-26.1", BASE_LON: "-49.1" },
+      fetch(url) {
+        if (url.pathname.includes("geocode")) {
+          const address = url.searchParams.get("text");
+          if (address === ruralAddress) {
+            return geoapifyResponse({ results: [{
+              ...pointsByAddress["Estrada Floresta"],
+              result_type: "street",
+              rank: {
+                confidence: 0.72,
+                confidence_city_level: 1,
+                confidence_street_level: 0.95,
+                match_type: "match_by_street",
+              },
+            }] });
+          }
+          return geoapifyResponse({ results: [pointsByAddress.Coleta] });
+        }
+        return geoapifyResponse({ features: [{ properties: {
+          distance: 17_000,
+          legs: [{ distance: 5_000 }, { distance: 7_000 }, { distance: 5_000 }],
+        } }] });
+      },
+    },
+  );
+  assert.equal(response.status, 200);
+  assert.equal(body.deliveries[0].classification, "rio_natal");
+  assert.equal(body.deliveries[0].routeType, "short");
+  assert.equal(body.price, 32);
+});
+
+test("cache de geocoding usa namespace v2 para não reaproveitar resultados antigos sem validação", async () => {
+  const requestedKeys = [];
+  const cache = {
+    async match(request) { requestedKeys.push(request.url); return undefined; },
+    async put() {},
+  };
+  await requestQuote(
+    { pickup: "Coleta", delivery: "Local" },
+    { cache, env: { BASE_LAT: "-26.1", BASE_LON: "-49.1" } },
+  );
+  assert.ok(requestedKeys.length > 0);
+  assert.ok(requestedKeys.every((key) => key.includes("/v2/")));
 });
