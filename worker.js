@@ -292,7 +292,7 @@ async function geocode(address, apiKey, telemetry) {
       const cachedResponse = await cache.match(cacheRequest);
       if (cachedResponse) {
         const cachedPoint = await cachedResponse.json();
-        if (validPoint(cachedPoint)) {
+        if (validCachedGeocodePoint(cachedPoint)) {
           telemetry.geocodeCacheHits += 1;
           return cachedPoint;
         }
@@ -361,6 +361,12 @@ function validPoint(point) {
     point.lat >= -90 && point.lat <= 90 && point.lon >= -180 && point.lon <= 180;
 }
 
+function validCachedGeocodePoint(point) {
+  return validPoint(point) && typeof point.city === "string" &&
+    Array.isArray(point.localities) &&
+    point.localities.every((value) => typeof value === "string");
+}
+
 async function getRoute(points, apiKey, routeType = "short", telemetry) {
   telemetry.routingCalls += 1;
   const waypoints = points.map((point) => `${point.lat},${point.lon}`).join("|");
@@ -378,13 +384,14 @@ async function getRoute(points, apiKey, routeType = "short", telemetry) {
 
   const routeProperties = (await response.json())?.features?.[0]?.properties;
   const meters = routeProperties?.distance;
-  if (typeof meters !== "number" || !Number.isFinite(meters)) return null;
+  if (typeof meters !== "number" || !Number.isFinite(meters) || meters < 0) return null;
 
   const oneWayLegs = routeProperties?.legs?.slice(0, 2);
   const hasValidOneWayLegs =
     oneWayLegs?.length === 2 &&
     oneWayLegs.every(
-      (leg) => typeof leg?.distance === "number" && Number.isFinite(leg.distance),
+      (leg) => typeof leg?.distance === "number" && Number.isFinite(leg.distance) &&
+        leg.distance >= 0,
     );
 
   return {
