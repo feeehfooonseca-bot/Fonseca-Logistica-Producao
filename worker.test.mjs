@@ -1015,6 +1015,7 @@ function memoryQuoteDb({ collideOnce = false } = {}) {
         },
         async run() {
           if (collisionPending) { collisionPending = false; throw new Error("UNIQUE code"); }
+          if (values.some((value) => typeof value === "boolean")) throw new Error("D1_TYPE_ERROR: Boolean");
           const [code, public_token_hash, quote_jti, created_at, expires_at, pickup,
             deliveries_json, official_quote_json, total_price, total_distance_km, source,
             customer_name, pickup_ref, delivery_refs_json, timing_mode, scheduled_at,
@@ -1193,6 +1194,27 @@ test("deliveryRefs exige strings e persiste valor válido normalizado", async (t
     assert.equal(response.status, 201);
     assert.deepEqual(JSON.parse(db.rows[0].delivery_refs_json), ["Portão lateral"]);
   });
+});
+
+test("invoiceRequired converte booleanos para bind numérico e mantém null permitido", async (t) => {
+  const fixture = await protectedFixture();
+  const secret = "test-secret-with-enough-entropy";
+  for (const [name, details, expected] of [
+    ["true", { invoiceRequired: true }, 1],
+    ["false", { invoiceRequired: false }, 0],
+    ["null", { invoiceRequired: null }, null],
+    ["ausente", {}, null],
+  ]) {
+    await t.test(name, async () => {
+      const db = memoryQuoteDb();
+      const response = await callWorker("/quote/submit", { method: "POST",
+        body: { ...fixture, details }, env: { QUOTE_SIGNING_SECRET: secret, QUOTE_DB: db } });
+      assert.equal(response.status, 201);
+      assert.notEqual(response.status, 503);
+      assert.equal(db.rows.length, 1);
+      assert.equal(db.rows[0].invoice_required, expected);
+    });
+  }
 });
 
 test("complementos não alteram tarifa e origem inválida é rejeitada", async () => {

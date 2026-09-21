@@ -335,6 +335,7 @@ async function submitQuote(request, env, corsHeaders) {
   if (!details) return json({ error: "Dados complementares inválidos." }, 400, corsHeaders);
 
   const publicToken = await derivePublicToken(proof.jti, env.QUOTE_SIGNING_SECRET);
+  const invoiceRequiredDb = details.invoiceRequired === null ? null : Number(details.invoiceRequired);
   let existing;
   try {
     existing = await first(env.QUOTE_DB, "SELECT code, created_at, expires_at FROM protected_quotes WHERE quote_jti = ?", proof.jti);
@@ -357,7 +358,7 @@ async function submitQuote(request, env, corsHeaders) {
       snapshot.pickup, JSON.stringify(snapshot.deliveries), JSON.stringify(snapshot), snapshot.totalPrice,
       snapshot.totalDistanceKm, details.source, details.name, details.pickupRef,
       JSON.stringify(details.deliveryRefs), details.timingMode, details.scheduledAt,
-      details.item, details.invoiceRequired);
+      details.item, invoiceRequiredDb);
       const record = await first(env.QUOTE_DB, "SELECT code, created_at, expires_at FROM protected_quotes WHERE quote_jti = ?", proof.jti);
       return json(publicRecord(record || { code, created_at: new Date().toISOString(), expires_at: new Date(proof.expiresAt * 1000).toISOString() }, publicToken, request.url, false), 201, corsHeaders);
     } catch {
