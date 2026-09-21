@@ -1068,7 +1068,10 @@ test("submit falha fechado sem secret ou D1", async () => {
 test("proof, snapshot e cada campo comercial adulterado são rejeitados", async (t) => {
   const original = await protectedFixture();
   const mutations = [
-    ["assinatura", (copy) => { copy.proof.signature = `${copy.proof.signature.slice(0, -1)}0`; }],
+    ["assinatura", (copy) => {
+      const replacement = copy.proof.signature.endsWith("0") ? "1" : "0";
+      copy.proof.signature = `${copy.proof.signature.slice(0, -1)}${replacement}`;
+    }],
     ["pickup", (copy) => { copy.snapshot.pickup = "Outra coleta"; }],
     ["destino", (copy) => { copy.snapshot.deliveries[0].address = "Outro destino"; }],
     ["ordem", (copy) => { copy.snapshot.deliveries.reverse(); }],
@@ -1161,6 +1164,35 @@ test("falha operacional do D1 no verify retorna página 503 controlada", async (
   assert.equal(response.status, 503);
   assert.match(page, /Serviço temporariamente indisponível/);
   assert.doesNotMatch(page, /INVÁLIDO|SQL|private detail/);
+});
+
+test("verify sem binding QUOTE_DB retorna página 503, não token inválido", async () => {
+  const response = await callWorker(`/quote/verify/${"A".repeat(43)}`, { env: {} });
+  const page = await response.text();
+  assert.equal(response.status, 503);
+  assert.match(page, /Serviço temporariamente indisponível/);
+  assert.doesNotMatch(page, /INVÁLIDO/);
+});
+
+test("deliveryRefs exige strings e persiste valor válido normalizado", async (t) => {
+  const fixture = await protectedFixture();
+  const secret = "test-secret-with-enough-entropy";
+  for (const [name, value] of [["null", null], ["número", 42]]) {
+    await t.test(name, async () => {
+      const response = await callWorker("/quote/submit", { method: "POST",
+        body: { ...fixture, details: { deliveryRefs: [value] } },
+        env: { QUOTE_SIGNING_SECRET: secret, QUOTE_DB: memoryQuoteDb() } });
+      assert.equal(response.status, 400);
+    });
+  }
+  await t.test("string válida", async () => {
+    const db = memoryQuoteDb();
+    const response = await callWorker("/quote/submit", { method: "POST",
+      body: { ...fixture, details: { deliveryRefs: ["  Portão lateral  "] } },
+      env: { QUOTE_SIGNING_SECRET: secret, QUOTE_DB: db } });
+    assert.equal(response.status, 201);
+    assert.deepEqual(JSON.parse(db.rows[0].delivery_refs_json), ["Portão lateral"]);
+  });
 });
 
 test("complementos não alteram tarifa e origem inválida é rejeitada", async () => {

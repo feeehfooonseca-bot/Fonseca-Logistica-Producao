@@ -375,7 +375,8 @@ async function submitQuote(request, env, corsHeaders) {
 
 async function verifyQuote(token, env) {
   const headers = secureHtmlHeaders();
-  if (!env.QUOTE_DB || !/^[A-Za-z0-9_-]{40,80}$/.test(token)) return htmlVerification(null, headers);
+  if (!/^[A-Za-z0-9_-]{40,80}$/.test(token)) return htmlVerification(null, headers);
+  if (!env.QUOTE_DB) return htmlVerificationUnavailable(headers);
   try {
     const record = await first(env.QUOTE_DB, `SELECT code, status, created_at, expires_at, pickup,
       deliveries_json, total_price, total_distance_km, timing_mode, scheduled_at
@@ -427,7 +428,7 @@ function validateDetails(value = {}) {
     timingMode: value.timingMode ?? null, invoiceRequired: value.invoiceRequired ?? null,
   };
   if (Object.values(result).includes(undefined) || !Array.isArray(deliveryRefs) || deliveryRefs.length > MAX_DELIVERIES ||
-      deliveryRefs.some((item) => limited(item, 200) === undefined) ||
+      deliveryRefs.some((item) => typeof item !== "string" || limited(item, 200) === undefined) ||
       (result.source && !/^[A-Za-z0-9._-]+$/.test(result.source)) ||
       ![null, "now", "scheduled"].includes(result.timingMode) ||
       ![null, true, false].includes(result.invoiceRequired)) return null;
