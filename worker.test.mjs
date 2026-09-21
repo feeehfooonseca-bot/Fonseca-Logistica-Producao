@@ -998,3 +998,270 @@ test("uma única viagem externa continua com preço e circuito individuais", asy
   assert.deepEqual(body.deliveries.map(({ price }) => price), [15, 34]);
   assert.equal(body.totalPrice, 49);
 });
+
+function memoryQuoteDb({ collideOnce = false } = {}) {
+  const rows = [];
+  let collisionPending = collideOnce;
+  return {
+    rows,
+    prepare(sql) {
+      let values;
+      return {
+        bind(...bound) { values = bound; return this; },
+        async first() {
+          if (sql.includes("quote_jti = ?")) return rows.find((row) => row.quote_jti === values[0]) || null;
+          if (sql.includes("public_token_hash = ?")) return rows.find((row) => row.public_token_hash === values[0]) || null;
+          throw new Error("unexpected SELECT");
+        },
+        async run() {
+          if (collisionPending) { collisionPending = false; throw new Error("UNIQUE code"); }
+          if (values.some((value) => typeof value === "boolean")) throw new Error("D1_TYPE_ERROR: Boolean");
+          const [code, public_token_hash, quote_jti, created_at, expires_at, pickup,
+            deliveries_json, official_quote_json, total_price, total_distance_km, source,
+            customer_name, pickup_ref, delivery_refs_json, timing_mode, scheduled_at,
+            item_description, invoice_required] = values;
+          if (rows.some((row) => row.code === code || row.quote_jti === quote_jti)) throw new Error("UNIQUE");
+          rows.push({ code, public_token_hash, quote_jti, status: "active", created_at, expires_at,
+            pickup, deliveries_json, official_quote_json, total_price, total_distance_km, source,
+            customer_name, pickup_ref, delivery_refs_json, timing_mode, scheduled_at,
+            item_description, invoice_required });
+          return { success: true };
+        },
+      };
+    },
+  };
+}
+
+async function callWorker(path, { method = "GET", body, env = {} } = {}) {
+  return workerModule.default.fetch(new Request(`https://worker.example.test${path}`, {
+    method, headers: body === undefined ? {} : { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  }), env);
+}
+
+async function protectedFixture(env = {}) {
+  const result = await requestQuote({ pickup: "Coleta", deliveries: ["Local", "Local longe"] }, {
+    env: { QUOTE_SIGNING_SECRET: "test-secret-with-enough-entropy", ...env },
+  });
+  return result.body.protectedQuote;
+}
+
+test("cálculo permanece stateless sem D1 e emite prova somente com secret", async () => {
+  const unsigned = await requestQuote({ pickup: "Coleta", delivery: "Local" });
+  assert.equal(unsigned.response.status, 200);
+  assert.equal(unsigned.body.protectedQuote, undefined);
+  const signed = await protectedFixture();
+  assert.equal(signed.proof.version, 1);
+  assert.match(signed.proof.jti, /^[A-Za-z0-9_-]+$/);
+  assert.equal(signed.proof.expiresAt - signed.proof.issuedAt, 1800);
+  assert.equal(signed.snapshot.totalPrice, 32);
+  assert.equal(signed.snapshot.totalDistanceKm, 32);
+});
+
+test("submit falha fechado sem secret ou D1", async () => {
+  const fixture = await protectedFixture();
+  const noSecret = await callWorker("/quote/submit", { method: "POST", body: fixture, env: { QUOTE_DB: memoryQuoteDb() } });
+  assert.equal(noSecret.status, 503);
+  const noDb = await callWorker("/quote/submit", { method: "POST", body: fixture, env: { QUOTE_SIGNING_SECRET: "test-secret-with-enough-entropy" } });
+  assert.equal(noDb.status, 503);
+});
+
+test("proof, snapshot e cada campo comercial adulterado são rejeitados", async (t) => {
+  const original = await protectedFixture();
+  const mutations = [
+    ["assinatura", (copy) => {
+      const replacement = copy.proof.signature.endsWith("0") ? "1" : "0";
+      copy.proof.signature = `${copy.proof.signature.slice(0, -1)}${replacement}`;
+    }],
+    ["pickup", (copy) => { copy.snapshot.pickup = "Outra coleta"; }],
+    ["destino", (copy) => { copy.snapshot.deliveries[0].address = "Outro destino"; }],
+    ["ordem", (copy) => { copy.snapshot.deliveries.reverse(); }],
+    ["preço", (copy) => { copy.snapshot.totalPrice += 1; }],
+    ["distância", (copy) => { copy.snapshot.totalDistanceKm += 1; }],
+    ["sharedTrips", (copy) => { copy.snapshot.sharedTrips.push({ id: "x" }); }],
+  ];
+  for (const [name, mutate] of mutations) await t.test(name, async () => {
+    const copy = structuredClone(original); mutate(copy);
+    const response = await callWorker("/quote/submit", { method: "POST", body: copy,
+      env: { QUOTE_SIGNING_SECRET: "test-secret-with-enough-entropy", QUOTE_DB: memoryQuoteDb() } });
+    assert.equal(response.status, 400);
+  });
+});
+
+test("proof expirada é rejeitada", async () => {
+  const fixture = await protectedFixture({ QUOTE_PROOF_TTL_SECONDS: "60" });
+  const originalNow = Date.now;
+  Date.now = () => (fixture.proof.expiresAt + 1) * 1000;
+  try {
+    const response = await callWorker("/quote/submit", { method: "POST", body: fixture,
+      env: { QUOTE_SIGNING_SECRET: "test-secret-with-enough-entropy", QUOTE_DB: memoryQuoteDb() } });
+    assert.equal(response.status, 410);
+  } finally { Date.now = originalNow; }
+});
+
+test("persistência é idempotente, trata colisão e nunca armazena token bruto", async () => {
+  const fixture = await protectedFixture();
+  const db = memoryQuoteDb({ collideOnce: true });
+  const env = { QUOTE_SIGNING_SECRET: "test-secret-with-enough-entropy", QUOTE_DB: db };
+  const firstResponse = await callWorker("/quote/submit", { method: "POST", body: { ...fixture, details: {
+    name: "Cliente", source: "google_ads", deliveryRefs: ["fundos", "portão"], timingMode: "now", invoiceRequired: false,
+  } }, env });
+  assert.equal(firstResponse.status, 201);
+  const firstBody = await firstResponse.json();
+  assert.match(firstBody.code, /^FL-[23456789A-HJ-NP-Z]{8}$/);
+  const rawToken = firstBody.verificationUrl.split("/").at(-1);
+  assert.ok(!JSON.stringify(db.rows).includes(rawToken));
+  assert.equal(db.rows[0].source, "google_ads");
+  assert.equal(JSON.parse(db.rows[0].official_quote_json).totalPrice, 32);
+  const duplicate = await callWorker("/quote/submit", { method: "POST", body: fixture, env });
+  assert.equal(duplicate.status, 200);
+  const duplicateBody = await duplicate.json();
+  assert.equal(duplicateBody.code, firstBody.code);
+  assert.equal(duplicateBody.verificationUrl, firstBody.verificationUrl);
+  assert.equal(duplicateBody.idempotent, true);
+  assert.equal(db.rows.length, 1);
+});
+
+test("submits concorrentes mantêm uma linha e a mesma URL de verificação", async () => {
+  const fixture = await protectedFixture();
+  const db = memoryQuoteDb();
+  const env = { QUOTE_SIGNING_SECRET: "test-secret-with-enough-entropy", QUOTE_DB: db };
+  const responses = await Promise.all([
+    callWorker("/quote/submit", { method: "POST", body: fixture, env }),
+    callWorker("/quote/submit", { method: "POST", body: fixture, env }),
+  ]);
+  const bodies = await Promise.all(responses.map((response) => response.json()));
+  assert.deepEqual(responses.map((response) => response.status).sort(), [200, 201]);
+  assert.equal(bodies[0].verificationUrl, bodies[1].verificationUrl);
+  assert.equal(db.rows.length, 1);
+  const rawToken = bodies[0].verificationUrl.split("/").at(-1);
+  assert.ok(!JSON.stringify(db.rows).includes(rawToken));
+});
+
+test("falhas operacionais do D1 no submit retornam 503 sem escapar detalhes", async (t) => {
+  const fixture = await protectedFixture();
+  const secret = "test-secret-with-enough-entropy";
+  await t.test("first", async () => {
+    const db = { prepare() { return { bind() { return this; }, async first() { throw new Error("SQL SELECT secret detail"); } }; } };
+    const response = await callWorker("/quote/submit", { method: "POST", body: fixture,
+      env: { QUOTE_SIGNING_SECRET: secret, QUOTE_DB: db } });
+    assert.equal(response.status, 503);
+    assert.doesNotMatch(await response.text(), /SQL|SELECT|secret detail/);
+  });
+  await t.test("run", async () => {
+    const db = { prepare(sql) { return { bind() { return this; }, async first() { return null; },
+      async run() { throw new Error(`D1 internal: ${sql}`); } }; } };
+    const response = await callWorker("/quote/submit", { method: "POST", body: fixture,
+      env: { QUOTE_SIGNING_SECRET: secret, QUOTE_DB: db } });
+    assert.equal(response.status, 503);
+    assert.doesNotMatch(await response.text(), /D1|INSERT|internal/);
+  });
+});
+
+test("falha operacional do D1 no verify retorna página 503 controlada", async () => {
+  const db = { prepare() { return { bind() { return this; }, async first() { throw new Error("SQL private detail"); } }; } };
+  const response = await callWorker(`/quote/verify/${"A".repeat(43)}`, { env: { QUOTE_DB: db } });
+  const page = await response.text();
+  assert.equal(response.status, 503);
+  assert.match(page, /Serviço temporariamente indisponível/);
+  assert.doesNotMatch(page, /INVÁLIDO|SQL|private detail/);
+});
+
+test("verify sem binding QUOTE_DB retorna página 503, não token inválido", async () => {
+  const response = await callWorker(`/quote/verify/${"A".repeat(43)}`, { env: {} });
+  const page = await response.text();
+  assert.equal(response.status, 503);
+  assert.match(page, /Serviço temporariamente indisponível/);
+  assert.doesNotMatch(page, /INVÁLIDO/);
+});
+
+test("deliveryRefs exige strings e persiste valor válido normalizado", async (t) => {
+  const fixture = await protectedFixture();
+  const secret = "test-secret-with-enough-entropy";
+  for (const [name, value] of [["null", null], ["número", 42]]) {
+    await t.test(name, async () => {
+      const response = await callWorker("/quote/submit", { method: "POST",
+        body: { ...fixture, details: { deliveryRefs: [value] } },
+        env: { QUOTE_SIGNING_SECRET: secret, QUOTE_DB: memoryQuoteDb() } });
+      assert.equal(response.status, 400);
+    });
+  }
+  await t.test("string válida", async () => {
+    const db = memoryQuoteDb();
+    const response = await callWorker("/quote/submit", { method: "POST",
+      body: { ...fixture, details: { deliveryRefs: ["  Portão lateral  "] } },
+      env: { QUOTE_SIGNING_SECRET: secret, QUOTE_DB: db } });
+    assert.equal(response.status, 201);
+    assert.deepEqual(JSON.parse(db.rows[0].delivery_refs_json), ["Portão lateral"]);
+  });
+});
+
+test("invoiceRequired converte booleanos para bind numérico e mantém null permitido", async (t) => {
+  const fixture = await protectedFixture();
+  const secret = "test-secret-with-enough-entropy";
+  for (const [name, details, expected] of [
+    ["true", { invoiceRequired: true }, 1],
+    ["false", { invoiceRequired: false }, 0],
+    ["null", { invoiceRequired: null }, null],
+    ["ausente", {}, null],
+  ]) {
+    await t.test(name, async () => {
+      const db = memoryQuoteDb();
+      const response = await callWorker("/quote/submit", { method: "POST",
+        body: { ...fixture, details }, env: { QUOTE_SIGNING_SECRET: secret, QUOTE_DB: db } });
+      assert.equal(response.status, 201);
+      assert.notEqual(response.status, 503);
+      assert.equal(db.rows.length, 1);
+      assert.equal(db.rows[0].invoice_required, expected);
+    });
+  }
+});
+
+test("complementos não alteram tarifa e origem inválida é rejeitada", async () => {
+  const fixture = await protectedFixture();
+  const env = { QUOTE_SIGNING_SECRET: "test-secret-with-enough-entropy", QUOTE_DB: memoryQuoteDb() };
+  const bad = await callWorker("/quote/submit", { method: "POST", body: { ...fixture, details: { source: "<script>" } }, env });
+  assert.equal(bad.status, 400);
+  const good = await callWorker("/quote/submit", { method: "POST", body: { ...fixture, details: { item: "Caixa", timingMode: "scheduled", scheduledAt: "2026-09-22T10:00:00Z" } }, env });
+  assert.equal(good.status, 201);
+  assert.equal(env.QUOTE_DB.rows[0].total_price, fixture.snapshot.totalPrice);
+});
+
+test("verify apresenta estados seguro, expirado e inválido com escaping", async () => {
+  const fixture = await protectedFixture();
+  fixture.snapshot.pickup = "<script>alert(1)</script>";
+  // A fresh valid signature for hostile text is obtained through a calculated fixture equivalent by storing directly.
+  const db = memoryQuoteDb();
+  const token = "A".repeat(43);
+  const tokenHash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
+  const hash = [...new Uint8Array(tokenHash)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  db.rows.push({ code: "FL-SAFE1234", public_token_hash: hash, status: "active",
+    created_at: new Date().toISOString(), expires_at: new Date(Date.now() + 60_000).toISOString(),
+    pickup: "<script>alert(1)</script>", deliveries_json: JSON.stringify([{ address: "<img src=x>" }]),
+    total_price: 32, total_distance_km: 32, scheduled_at: null });
+  const valid = await callWorker(`/quote/verify/${token}`, { env: { QUOTE_DB: db } });
+  const validHtml = await valid.text();
+  assert.equal(valid.status, 200);
+  assert.match(validHtml, /🟢 VÁLIDO/);
+  assert.doesNotMatch(validHtml, /<script>alert|<img src/);
+  assert.match(validHtml, /&lt;script&gt;|&lt;img/);
+  assert.equal(valid.headers.get("Cache-Control"), "no-store");
+  assert.match(valid.headers.get("Content-Security-Policy"), /frame-ancestors 'none'/);
+  db.rows[0].expires_at = new Date(Date.now() - 1).toISOString();
+  assert.match(await (await callWorker(`/quote/verify/${token}`, { env: { QUOTE_DB: db } })).text(), /🟡 EXPIRADO/);
+  db.rows[0].expires_at = new Date(Date.now() + 60_000).toISOString();
+  db.rows[0].status = "cancelled";
+  const cancelledHtml = await (await callWorker(`/quote/verify/${token}`, { env: { QUOTE_DB: db } })).text();
+  assert.match(cancelledHtml, /🔴 INVÁLIDO/);
+  assert.doesNotMatch(cancelledHtml, /🟡 EXPIRADO/);
+  const missing = await callWorker(`/quote/verify/${"B".repeat(43)}`, { env: { QUOTE_DB: db } });
+  assert.equal(missing.status, 404);
+  assert.match(await missing.text(), /🔴 INVÁLIDO/);
+});
+
+test("roteamento explícito preserva alias e distingue 404 de 405", async () => {
+  const alias = await requestQuote({ pickup: "Coleta", delivery: "Local" });
+  assert.equal(alias.response.status, 200);
+  assert.equal((await callWorker("/unknown", { env: {} })).status, 404);
+  assert.equal((await callWorker("/quote/submit", { method: "GET", env: {} })).status, 405);
+});
