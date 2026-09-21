@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { ROUTE_API, requestOfficialQuote } from "./frontend-quote.mjs";
+import { MAX_DELIVERIES, ROUTE_API, requestOfficialQuote } from "./frontend-quote.mjs";
 
 function response(body, { ok = true } = {}) {
   return { ok, async json() { return body; } };
@@ -27,6 +27,33 @@ test("envia uma entrega no contrato moderno do Worker", async () => {
     deliveries: ["Entrega A"],
   });
   assert.equal(quote.totalPrice, 15);
+});
+
+test("frontend aceita 20 entregas e rejeita 21 sem chamar o Worker", async () => {
+  assert.equal(MAX_DELIVERIES, 20);
+  const deliveries = Array.from({ length: MAX_DELIVERIES }, (_, index) => ({
+    address: `Entrega ${index + 1}`,
+  }));
+  let calls = 0;
+  const fetchImpl = async (_url, options) => {
+    calls++;
+    const requested = JSON.parse(options.body).deliveries;
+    return response({
+      ok: true,
+      deliveries: requested.map((address) => ({ address, price: 15, distanceKm: 10 })),
+      totalPrice: 300,
+    });
+  };
+
+  const quote = await requestOfficialQuote("Coleta", deliveries, fetchImpl);
+  assert.equal(quote.deliveries.length, 20);
+  assert.equal(calls, 1);
+
+  await assert.rejects(
+    requestOfficialQuote("Coleta", [...deliveries, { address: "Entrega 21" }], fetchImpl),
+    /no máximo 20 entregas/,
+  );
+  assert.equal(calls, 1);
 });
 
 test("preserva múltiplas entregas, ordem, preços individuais e soma oficial", async () => {
@@ -172,6 +199,7 @@ test("propaga erro controlado do Worker e trata resposta não JSON", async () =>
 
 test("HTML local inicializa a calculadora sem depender de módulo externo", async () => {
   const localHtml = await readFile(new URL("./TESTE-LOCAL-CELULAR.html", import.meta.url), "utf8");
+  const indexHtml = await readFile(new URL("./index.html", import.meta.url), "utf8");
   assert.doesNotMatch(localHtml, /import\s+\{?\s*requestOfficialQuote/);
   assert.doesNotMatch(localHtml, /src=["'][^"']*frontend-quote\.mjs/);
   assert.doesNotMatch(localHtml, /<script\s+type=["']module["'][^>]*>/);
@@ -183,6 +211,12 @@ test("HTML local inicializa a calculadora sem depender de módulo externo", asyn
   assert.match(localHtml, /Viagem compartilhada — entregas/);
   assert.match(localHtml, /Valor da viagem:/);
   assert.match(localHtml, /sharedTrips\.reduce\(\(a,x\)=>a\+Number\(x\.distanceKm\),0\)/);
+  assert.match(indexHtml, /import \{ MAX_DELIVERIES, requestOfficialQuote \}/);
+  assert.match(localHtml, /MAX_DELIVERIES=20/);
+  for (const html of [indexHtml, localHtml]) {
+    assert.match(html, /length>=MAX_DELIVERIES/);
+    assert.match(html, /Limite de \$\{MAX_DELIVERIES\} entregas atingido/);
+  }
 });
 
 

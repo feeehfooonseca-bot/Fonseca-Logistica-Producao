@@ -538,6 +538,28 @@ test("rejeita deliveries vazio, endereço vazio, tipo inválido ou ausência de 
   }
 });
 
+test("aceita o limite de 20 entregas", async () => {
+  const result = await requestQuote({
+    pickup: "Coleta",
+    deliveries: Array.from({ length: 20 }, () => "Local"),
+  });
+
+  assert.equal(result.response.status, 200);
+  assert.equal(result.body.deliveries.length, 20);
+  assert.equal(result.body.totalPrice, 300);
+});
+
+test("rejeita 21 entregas antes de geocoding ou routing", async () => {
+  const result = await requestQuote({
+    pickup: "Coleta",
+    deliveries: Array.from({ length: 21 }, () => "Local"),
+  });
+
+  assert.equal(result.response.status, 400);
+  assert.deepEqual(result.body, { error: "Cada orçamento aceita no máximo 20 entregas." });
+  assert.equal(result.calls.length, 0);
+});
+
 test("fronteiras completas da tarifa local comum", () => {
   const cases = [
     [0, 15], [11.9, 15], [12, 15], [12.0001, 16],

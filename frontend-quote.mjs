@@ -1,6 +1,11 @@
 export const ROUTE_API = "https://fonseca-logistica-api.fonsecalogistica047.workers.dev";
+export const MAX_DELIVERIES = 20;
 
 export async function requestOfficialQuote(pickup, deliveries, fetchImpl = fetch) {
+  if (!Array.isArray(deliveries) || deliveries.length > MAX_DELIVERIES) {
+    throw new Error(`Cada orçamento aceita no máximo ${MAX_DELIVERIES} entregas.`);
+  }
+
   let response;
   try {
     response = await fetchImpl(ROUTE_API, {

@@ -1,4 +1,5 @@
 const RATE_PER_KM = 1.1;
+const MAX_DELIVERIES = 20;
 const GEOCODE_CACHE_TTL_SECONDS = 86400;
 const GEOCODE_MIN_CONFIDENCE = 0.2;
 const GEOCODE_MIN_CITY_CONFIDENCE = 0.5;
@@ -85,6 +86,13 @@ export default {
         );
       }
       telemetry.deliveryCount = deliveryAddresses.length;
+      if (deliveryAddresses.length > MAX_DELIVERIES) {
+        return json(
+          { error: `Cada orçamento aceita no máximo ${MAX_DELIVERIES} entregas.` },
+          400,
+          corsHeaders,
+        );
+      }
 
       const geocodes = new Map();
       const geocodeOnce = (address) => {
