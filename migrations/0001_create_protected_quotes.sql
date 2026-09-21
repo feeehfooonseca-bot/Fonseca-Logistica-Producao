@@ -1,5 +1,7 @@
 -- Apply explicitly to the D1 database bound as QUOTE_DB. This migration creates no Cloudflare resource.
-CREATE TABLE protected_quotes (
+-- Idempotent by design so the schema can be created from the D1 Console on mobile
+-- and later registered safely through Wrangler migrations.
+CREATE TABLE IF NOT EXISTS protected_quotes (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   code TEXT NOT NULL UNIQUE,
   public_token_hash TEXT NOT NULL UNIQUE,
@@ -21,4 +23,4 @@ CREATE TABLE protected_quotes (
   item_description TEXT,
   invoice_required INTEGER
 );
-CREATE INDEX protected_quotes_expires_at_idx ON protected_quotes(expires_at);
+CREATE INDEX IF NOT EXISTS protected_quotes_expires_at_idx ON protected_quotes(expires_at);
