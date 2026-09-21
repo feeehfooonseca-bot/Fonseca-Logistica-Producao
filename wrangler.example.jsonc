@@ -1,0 +1,32 @@
+{
+  // TEMPLATE ONLY — do not deploy this file without replacing every REPLACE_* value
+  // Copy the CURRENT Worker's compatibility date and existing production settings
+  // instead of inventing new values.
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "fonseca-logistica-api",
+  "main": "worker.js",
+  "compatibility_date": "REPLACE_WITH_CURRENT_WORKER_COMPATIBILITY_DATE",
+
+  "d1_databases": [
+    {
+      "binding": "QUOTE_DB",
+      "database_name": "fonseca-logistica-quotes",
+      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  "vars": {
+    "QUOTE_PROOF_TTL_SECONDS": "1800",
+    "ALLOWED_ORIGINS": "REPLACE_WITH_CURRENT_ALLOWED_ORIGINS",
+    "BASE_LAT": "REPLACE_WITH_CURRENT_BASE_LAT",
+    "BASE_LON": "REPLACE_WITH_CURRENT_BASE_LON"
+  },
+
+  "secrets": {
+    "required": [
+      "GEOAPIFY_API_KEY",
+      "QUOTE_SIGNING_SECRET"
+    ]
+  }
+}
