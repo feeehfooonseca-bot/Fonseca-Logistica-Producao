@@ -1111,8 +1111,56 @@ test("persistência é idempotente, trata colisão e nunca armazena token bruto"
   assert.equal(JSON.parse(db.rows[0].official_quote_json).totalPrice, 32);
   const duplicate = await callWorker("/quote/submit", { method: "POST", body: fixture, env });
   assert.equal(duplicate.status, 200);
-  assert.equal((await duplicate.json()).code, firstBody.code);
+  const duplicateBody = await duplicate.json();
+  assert.equal(duplicateBody.code, firstBody.code);
+  assert.equal(duplicateBody.verificationUrl, firstBody.verificationUrl);
+  assert.equal(duplicateBody.idempotent, true);
   assert.equal(db.rows.length, 1);
+});
+
+test("submits concorrentes mantêm uma linha e a mesma URL de verificação", async () => {
+  const fixture = await protectedFixture();
+  const db = memoryQuoteDb();
+  const env = { QUOTE_SIGNING_SECRET: "test-secret-with-enough-entropy", QUOTE_DB: db };
+  const responses = await Promise.all([
+    callWorker("/quote/submit", { method: "POST", body: fixture, env }),
+    callWorker("/quote/submit", { method: "POST", body: fixture, env }),
+  ]);
+  const bodies = await Promise.all(responses.map((response) => response.json()));
+  assert.deepEqual(responses.map((response) => response.status).sort(), [200, 201]);
+  assert.equal(bodies[0].verificationUrl, bodies[1].verificationUrl);
+  assert.equal(db.rows.length, 1);
+  const rawToken = bodies[0].verificationUrl.split("/").at(-1);
+  assert.ok(!JSON.stringify(db.rows).includes(rawToken));
+});
+
+test("falhas operacionais do D1 no submit retornam 503 sem escapar detalhes", async (t) => {
+  const fixture = await protectedFixture();
+  const secret = "test-secret-with-enough-entropy";
+  await t.test("first", async () => {
+    const db = { prepare() { return { bind() { return this; }, async first() { throw new Error("SQL SELECT secret detail"); } }; } };
+    const response = await callWorker("/quote/submit", { method: "POST", body: fixture,
+      env: { QUOTE_SIGNING_SECRET: secret, QUOTE_DB: db } });
+    assert.equal(response.status, 503);
+    assert.doesNotMatch(await response.text(), /SQL|SELECT|secret detail/);
+  });
+  await t.test("run", async () => {
+    const db = { prepare(sql) { return { bind() { return this; }, async first() { return null; },
+      async run() { throw new Error(`D1 internal: ${sql}`); } }; } };
+    const response = await callWorker("/quote/submit", { method: "POST", body: fixture,
+      env: { QUOTE_SIGNING_SECRET: secret, QUOTE_DB: db } });
+    assert.equal(response.status, 503);
+    assert.doesNotMatch(await response.text(), /D1|INSERT|internal/);
+  });
+});
+
+test("falha operacional do D1 no verify retorna página 503 controlada", async () => {
+  const db = { prepare() { return { bind() { return this; }, async first() { throw new Error("SQL private detail"); } }; } };
+  const response = await callWorker(`/quote/verify/${"A".repeat(43)}`, { env: { QUOTE_DB: db } });
+  const page = await response.text();
+  assert.equal(response.status, 503);
+  assert.match(page, /Serviço temporariamente indisponível/);
+  assert.doesNotMatch(page, /INVÁLIDO|SQL|private detail/);
 });
 
 test("complementos não alteram tarifa e origem inválida é rejeitada", async () => {
@@ -1147,6 +1195,11 @@ test("verify apresenta estados seguro, expirado e inválido com escaping", async
   assert.match(valid.headers.get("Content-Security-Policy"), /frame-ancestors 'none'/);
   db.rows[0].expires_at = new Date(Date.now() - 1).toISOString();
   assert.match(await (await callWorker(`/quote/verify/${token}`, { env: { QUOTE_DB: db } })).text(), /🟡 EXPIRADO/);
+  db.rows[0].expires_at = new Date(Date.now() + 60_000).toISOString();
+  db.rows[0].status = "cancelled";
+  const cancelledHtml = await (await callWorker(`/quote/verify/${token}`, { env: { QUOTE_DB: db } })).text();
+  assert.match(cancelledHtml, /🔴 INVÁLIDO/);
+  assert.doesNotMatch(cancelledHtml, /🟡 EXPIRADO/);
   const missing = await callWorker(`/quote/verify/${"B".repeat(43)}`, { env: { QUOTE_DB: db } });
   assert.equal(missing.status, 404);
   assert.match(await missing.text(), /🔴 INVÁLIDO/);

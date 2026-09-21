@@ -334,12 +334,17 @@ async function submitQuote(request, env, corsHeaders) {
   const details = validateDetails(body.details);
   if (!details) return json({ error: "Dados complementares inválidos." }, 400, corsHeaders);
 
-  const existing = await first(env.QUOTE_DB, "SELECT code, created_at, expires_at FROM protected_quotes WHERE quote_jti = ?", proof.jti);
-  if (existing) return json(publicRecord(existing, null, request.url), 200, corsHeaders);
+  const publicToken = await derivePublicToken(proof.jti, env.QUOTE_SIGNING_SECRET);
+  let existing;
+  try {
+    existing = await first(env.QUOTE_DB, "SELECT code, created_at, expires_at FROM protected_quotes WHERE quote_jti = ?", proof.jti);
+  } catch {
+    return quoteStorageUnavailable(corsHeaders);
+  }
+  if (existing) return json(publicRecord(existing, publicToken, request.url, true), 200, corsHeaders);
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const code = `FL-${randomFromAlphabet(8)}`;
-    const publicToken = randomToken(32);
     const tokenHash = await sha256(publicToken);
     try {
       await run(env.QUOTE_DB, `INSERT INTO protected_quotes
@@ -354,11 +359,16 @@ async function submitQuote(request, env, corsHeaders) {
       JSON.stringify(details.deliveryRefs), details.timingMode, details.scheduledAt,
       details.item, details.invoiceRequired);
       const record = await first(env.QUOTE_DB, "SELECT code, created_at, expires_at FROM protected_quotes WHERE quote_jti = ?", proof.jti);
-      return json(publicRecord(record || { code, created_at: new Date().toISOString(), expires_at: new Date(proof.expiresAt * 1000).toISOString() }, publicToken, request.url), 201, corsHeaders);
-    } catch (error) {
-      const concurrent = await first(env.QUOTE_DB, "SELECT code, created_at, expires_at FROM protected_quotes WHERE quote_jti = ?", proof.jti);
-      if (concurrent) return json(publicRecord(concurrent, null, request.url), 200, corsHeaders);
-      if (attempt === 4) return json({ error: "Não foi possível gerar o código do orçamento." }, 503, corsHeaders);
+      return json(publicRecord(record || { code, created_at: new Date().toISOString(), expires_at: new Date(proof.expiresAt * 1000).toISOString() }, publicToken, request.url, false), 201, corsHeaders);
+    } catch {
+      let concurrent;
+      try {
+        concurrent = await first(env.QUOTE_DB, "SELECT code, created_at, expires_at FROM protected_quotes WHERE quote_jti = ?", proof.jti);
+      } catch {
+        return quoteStorageUnavailable(corsHeaders);
+      }
+      if (concurrent) return json(publicRecord(concurrent, publicToken, request.url, true), 200, corsHeaders);
+      if (attempt === 4) return quoteStorageUnavailable(corsHeaders);
     }
   }
 }
@@ -366,20 +376,32 @@ async function submitQuote(request, env, corsHeaders) {
 async function verifyQuote(token, env) {
   const headers = secureHtmlHeaders();
   if (!env.QUOTE_DB || !/^[A-Za-z0-9_-]{40,80}$/.test(token)) return htmlVerification(null, headers);
-  const record = await first(env.QUOTE_DB, `SELECT code, status, created_at, expires_at, pickup,
-    deliveries_json, total_price, total_distance_km, timing_mode, scheduled_at
-    FROM protected_quotes WHERE public_token_hash = ?`, await sha256(token));
-  return htmlVerification(record, headers);
+  try {
+    const record = await first(env.QUOTE_DB, `SELECT code, status, created_at, expires_at, pickup,
+      deliveries_json, total_price, total_distance_km, timing_mode, scheduled_at
+      FROM protected_quotes WHERE public_token_hash = ?`, await sha256(token));
+    return htmlVerification(record, headers);
+  } catch {
+    return htmlVerificationUnavailable(headers);
+  }
 }
 
 function htmlVerification(record, headers) {
   let state = "🔴 INVÁLIDO / NÃO ENCONTRADO";
-  if (record) state = record.status === "active" && Date.parse(record.expires_at) > Date.now() ? "🟢 VÁLIDO" : "🟡 EXPIRADO";
+  if (record) {
+    if (record.status !== "active") state = "🔴 INVÁLIDO";
+    else if (Date.parse(record.expires_at) <= Date.now()) state = "🟡 EXPIRADO";
+    else state = "🟢 VÁLIDO";
+  }
   let deliveries = [];
   try { deliveries = JSON.parse(record?.deliveries_json || "[]"); } catch { deliveries = []; }
   const destinations = deliveries.map((item) => `<li>${escapeHtml(item.address)}</li>`).join("");
   const content = record ? `<dl><dt>Código</dt><dd>${escapeHtml(record.code)}</dd><dt>Coleta</dt><dd>${escapeHtml(record.pickup)}</dd><dt>Destinos</dt><dd><ol>${destinations}</ol></dd><dt>Distância</dt><dd>${escapeHtml(record.total_distance_km)} km</dd><dt>Valor</dt><dd>R$ ${escapeHtml(record.total_price)}</dd><dt>Solicitado</dt><dd>${escapeHtml(record.created_at)}</dd>${record.scheduled_at ? `<dt>Agendamento</dt><dd>${escapeHtml(record.scheduled_at)}</dd>` : ""}<dt>Validade</dt><dd>${escapeHtml(record.expires_at)}</dd></dl>` : "";
   return new Response(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Verificação de orçamento</title></head><body><main><h1>${state}</h1>${content}</main></body></html>`, { status: record ? 200 : 404, headers });
+}
+
+function htmlVerificationUnavailable(headers) {
+  return new Response("<!doctype html><html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><title>Verificação indisponível</title></head><body><main><h1>Serviço temporariamente indisponível</h1><p>Tente novamente mais tarde.</p></main></body></html>", { status: 503, headers });
 }
 
 function validProofShape(value) {
@@ -428,6 +450,11 @@ async function hmac(value, secret) {
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   return hex(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(canonicalJson(value))));
 }
+async function derivePublicToken(jti, secret) {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const token = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`quote-verification-token:v1:${jti}`));
+  return base64Url(new Uint8Array(token));
+}
 async function sha256(value) { return hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value))); }
 function hex(buffer) { return [...new Uint8Array(buffer)].map((byte) => byte.toString(16).padStart(2, "0")).join(""); }
 function constantTimeEqual(a, b) { if (typeof a !== "string" || a.length !== b.length) return false; let different = 0; for (let i = 0; i < a.length; i += 1) different |= a.charCodeAt(i) ^ b.charCodeAt(i); return different === 0; }
@@ -436,7 +463,8 @@ function base64Url(bytes) { let value = ""; for (const byte of bytes) value += S
 function randomFromAlphabet(length) { const bytes = crypto.getRandomValues(new Uint8Array(length)); return [...bytes].map((byte) => CODE_ALPHABET[byte % CODE_ALPHABET.length]).join(""); }
 function first(db, sql, ...values) { return db.prepare(sql).bind(...values).first(); }
 function run(db, sql, ...values) { return db.prepare(sql).bind(...values).run(); }
-function publicRecord(record, token, requestUrl) { return { ok: true, code: record.code, createdAt: record.created_at, expiresAt: record.expires_at, verificationUrl: token ? `${new URL(requestUrl).origin}/quote/verify/${token}` : null, idempotent: !token }; }
+function publicRecord(record, token, requestUrl, idempotent) { return { ok: true, code: record.code, createdAt: record.created_at, expiresAt: record.expires_at, verificationUrl: `${new URL(requestUrl).origin}/quote/verify/${token}`, idempotent }; }
+function quoteStorageUnavailable(corsHeaders) { return json({ error: "Armazenamento de orçamento temporariamente indisponível." }, 503, corsHeaders); }
 function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]); }
 function secureHtmlHeaders() { return { "Content-Type": "text/html; charset=UTF-8", "Cache-Control": "no-store", "Content-Security-Policy": "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'", "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Referrer-Policy": "no-referrer" }; }
 
