@@ -1,0 +1,13 @@
+# Cloudflare / Wrangler local state
+.wrangler/
+
+# Local secrets and environment files — never commit real values
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+.env
+.env.*
+!.env.example
+
+# Node dependencies if Wrangler is installed locally
+node_modules/
