@@ -177,6 +177,12 @@ test("HTML local inicializa a calculadora sem depender de módulo externo", asyn
   assert.doesNotMatch(localHtml, /<script\s+type=["']module["'][^>]*>/);
   assert.match(localHtml, /async function requestOfficialQuote\(pickup,deliveries\)/);
   assert.match(localHtml, /await requestOfficialQuote\(pickup,deliveries\)/);
+  assert.match(localHtml, /delivery\.pricingGroupId===sharedTrip\.id/);
+  assert.match(localHtml, /delivery\.price===null&&delivery\.distanceKm===null/);
+  assert.match(localHtml, /Incluída na viagem compartilhada/);
+  assert.match(localHtml, /Viagem compartilhada — entregas/);
+  assert.match(localHtml, /Valor da viagem:/);
+  assert.match(localHtml, /sharedTrips\.reduce\(\(a,x\)=>a\+Number\(x\.distanceKm\),0\)/);
 });
 
 

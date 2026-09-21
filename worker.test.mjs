@@ -341,19 +341,37 @@ test("local e viagem selecionam uma rota SHORT e uma BALANCED", async () => {
   assert.equal(body.totalPrice, 49);
 });
 
-test("múltiplas viagens usam e arredondam seus circuitos completos individualmente", async () => {
+test("múltiplas viagens compartilham um único circuito e preço", async () => {
   const { body, calls } = await requestQuote({ pickup: "Coleta", deliveries: ["Externa", "Externa 2"] });
-  assert.deepEqual(body.deliveries.map((item) => item.distanceKm), [30.1, 20.1]);
-  assert.deepEqual(body.deliveries.map((item) => item.price), [34, 23]);
-  assert.equal(body.totalPrice, 57);
-  assert.ok(callsAt(calls, "/routing").every((url) => url.searchParams.get("type") === "balanced"));
+  assert.deepEqual(body.deliveries.map((item) => item.distanceKm), [null, null]);
+  assert.deepEqual(body.deliveries.map((item) => item.price), [null, null]);
+  assert.deepEqual(body.deliveries.map((item) => item.pricingGroupId), ["external-shared-1", "external-shared-1"]);
+  assert.deepEqual(body.sharedTrips, [{
+    id: "external-shared-1",
+    classification: "viagem",
+    routeType: "balanced",
+    deliveryIndexes: [0, 1],
+    distanceKm: 30.1,
+    price: 34,
+  }]);
+  assert.equal(body.totalPrice, 34);
+  const routing = callsAt(calls, "/routing");
+  assert.equal(routing.length, 1);
+  assert.equal(routing[0].searchParams.get("type"), "balanced");
 });
 
-test("coleta externa torna todas as entregas viagens", async () => {
+test("coleta externa agrupa todas as entregas em uma viagem", async () => {
   const { body, calls } = await requestQuote({ pickup: "Coleta externa", deliveries: ["Local", "Local longe"] });
   assert.deepEqual(body.deliveries.map((item) => item.classification), ["viagem", "viagem"]);
-  assert.deepEqual(body.deliveries.map((item) => item.price), [16, 20]);
-  assert.ok(callsAt(calls, "/routing").every((url) => url.searchParams.get("type") === "balanced"));
+  assert.deepEqual(body.deliveries.map((item) => item.price), [null, null]);
+  assert.deepEqual(body.deliveries.map((item) => item.pricingGroupId), ["external-shared-1", "external-shared-1"]);
+  assert.equal(body.sharedTrips.length, 1);
+  assert.deepEqual(body.sharedTrips[0].deliveryIndexes, [0, 1]);
+  assert.equal(body.sharedTrips[0].price, 16);
+  assert.equal(body.totalPrice, 16);
+  const routing = callsAt(calls, "/routing");
+  assert.equal(routing.length, 1);
+  assert.equal(routing[0].searchParams.get("type"), "balanced");
 });
 
 test("geocodifica base e coleta uma vez, cada entrega uma vez, e roteia uma vez por entrega", async () => {
