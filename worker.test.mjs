@@ -341,19 +341,37 @@ test("local e viagem selecionam uma rota SHORT e uma BALANCED", async () => {
   assert.equal(body.totalPrice, 49);
 });
 
-test("múltiplas viagens usam e arredondam seus circuitos completos individualmente", async () => {
+test("múltiplas viagens compartilham um único circuito e preço", async () => {
   const { body, calls } = await requestQuote({ pickup: "Coleta", deliveries: ["Externa", "Externa 2"] });
-  assert.deepEqual(body.deliveries.map((item) => item.distanceKm), [30.1, 20.1]);
-  assert.deepEqual(body.deliveries.map((item) => item.price), [34, 23]);
-  assert.equal(body.totalPrice, 57);
-  assert.ok(callsAt(calls, "/routing").every((url) => url.searchParams.get("type") === "balanced"));
+  assert.deepEqual(body.deliveries.map((item) => item.distanceKm), [null, null]);
+  assert.deepEqual(body.deliveries.map((item) => item.price), [null, null]);
+  assert.deepEqual(body.deliveries.map((item) => item.pricingGroupId), ["external-shared-1", "external-shared-1"]);
+  assert.deepEqual(body.sharedTrips, [{
+    id: "external-shared-1",
+    classification: "viagem",
+    routeType: "balanced",
+    deliveryIndexes: [0, 1],
+    distanceKm: 30.1,
+    price: 34,
+  }]);
+  assert.equal(body.totalPrice, 34);
+  const routing = callsAt(calls, "/routing");
+  assert.equal(routing.length, 1);
+  assert.equal(routing[0].searchParams.get("type"), "balanced");
 });
 
-test("coleta externa torna todas as entregas viagens", async () => {
+test("coleta externa agrupa todas as entregas em uma viagem", async () => {
   const { body, calls } = await requestQuote({ pickup: "Coleta externa", deliveries: ["Local", "Local longe"] });
   assert.deepEqual(body.deliveries.map((item) => item.classification), ["viagem", "viagem"]);
-  assert.deepEqual(body.deliveries.map((item) => item.price), [16, 20]);
-  assert.ok(callsAt(calls, "/routing").every((url) => url.searchParams.get("type") === "balanced"));
+  assert.deepEqual(body.deliveries.map((item) => item.price), [null, null]);
+  assert.deepEqual(body.deliveries.map((item) => item.pricingGroupId), ["external-shared-1", "external-shared-1"]);
+  assert.equal(body.sharedTrips.length, 1);
+  assert.deepEqual(body.sharedTrips[0].deliveryIndexes, [0, 1]);
+  assert.equal(body.sharedTrips[0].price, 16);
+  assert.equal(body.totalPrice, 16);
+  const routing = callsAt(calls, "/routing");
+  assert.equal(routing.length, 1);
+  assert.equal(routing[0].searchParams.get("type"), "balanced");
 });
 
 test("geocodifica base e coleta uma vez, cada entrega uma vez, e roteia uma vez por entrega", async () => {
@@ -520,6 +538,28 @@ test("rejeita deliveries vazio, endereço vazio, tipo inválido ou ausência de 
   }
 });
 
+test("aceita o limite de 20 entregas", async () => {
+  const result = await requestQuote({
+    pickup: "Coleta",
+    deliveries: Array.from({ length: 20 }, () => "Local"),
+  });
+
+  assert.equal(result.response.status, 200);
+  assert.equal(result.body.deliveries.length, 20);
+  assert.equal(result.body.totalPrice, 300);
+});
+
+test("rejeita 21 entregas antes de geocoding ou routing", async () => {
+  const result = await requestQuote({
+    pickup: "Coleta",
+    deliveries: Array.from({ length: 21 }, () => "Local"),
+  });
+
+  assert.equal(result.response.status, 400);
+  assert.deepEqual(result.body, { error: "Cada orçamento aceita no máximo 20 entregas." });
+  assert.equal(result.calls.length, 0);
+});
+
 test("fronteiras completas da tarifa local comum", () => {
   const cases = [
     [0, 15], [11.9, 15], [12, 15], [12.0001, 16],
@@ -581,17 +621,25 @@ test("coleta externa com entrega externa permanece viagem BALANCED", async () =>
   assert.equal(callsAt(calls, "/routing")[0].searchParams.get("type"), "balanced");
 });
 
-test("ordem, endereço repetido e preços individuais são preservados", async () => {
+test("ordem é preservada e viagens externas repetidas compartilham uma única rota", async () => {
   const { body, calls } = await requestQuote({
     pickup: "Coleta",
     deliveries: ["Externa", "Local", "Externa", "Local longe"],
   });
   assert.deepEqual(body.deliveries.map(({ address }) => address),
     ["Externa", "Local", "Externa", "Local longe"]);
-  assert.deepEqual(body.deliveries.map(({ price }) => price), [34, 15, 34, 17]);
-  assert.equal(body.totalPrice, 100);
+  assert.deepEqual(body.deliveries.map(({ price }) => price), [null, 15, null, 17]);
+  assert.deepEqual(body.sharedTrips, [{
+    id: "external-shared-1",
+    classification: "viagem",
+    routeType: "balanced",
+    deliveryIndexes: [0, 2],
+    distanceKm: 30.1,
+    price: 34,
+  }]);
+  assert.equal(body.totalPrice, 66);
   assert.equal(geocodeCount(calls, "Externa"), 1);
-  assert.equal(callsAt(calls, "/routing").length, 4);
+  assert.equal(callsAt(calls, "/routing").length, 3);
 });
 
 test("soma preços já arredondados, nunca o total bruto", () => {
@@ -893,4 +941,60 @@ test("cache de geocoding usa namespace v2 para não reaproveitar resultados anti
   );
   assert.ok(requestedKeys.length > 0);
   assert.ok(requestedKeys.every((key) => key.includes("/v2/")));
+});
+
+
+test("duas viagens externas usam um único circuito compartilhado na ordem informada", async () => {
+  const { response, body, calls } = await requestQuote(
+    { pickup: "Coleta", deliveries: ["Externa", "Externa 2"] },
+    {
+      env: { BASE_LAT: "-26.1", BASE_LON: "-49.1" },
+      fetch(url) {
+        if (url.pathname.includes("geocode")) {
+          return geoapifyResponse({ results: [pointsByAddress[url.searchParams.get("text")]] });
+        }
+        const waypoints = url.searchParams.get("waypoints").split("|");
+        assert.deepEqual(waypoints, [
+          "-26.1,-49.1",
+          "-26.2,-49.2",
+          "-26.4,-49.4",
+          "-26.5,-49.5",
+          "-26.1,-49.1",
+        ]);
+        assert.equal(url.searchParams.get("type"), "balanced");
+        assert.equal(url.searchParams.get("mode"), "motorcycle");
+        return geoapifyResponse({ features: [{ properties: {
+          distance: 35_000,
+          legs: [
+            { distance: 5_000 },
+            { distance: 8_000 },
+            { distance: 9_000 },
+            { distance: 13_000 },
+          ],
+        } }] });
+      },
+    },
+  );
+  assert.equal(response.status, 200);
+  assert.equal(callsAt(calls, "/routing").length, 1);
+  assert.deepEqual(body.deliveries.map(({ classification }) => classification), ["viagem", "viagem"]);
+  assert.deepEqual(body.deliveries.map(({ price }) => price), [null, null]);
+  assert.deepEqual(body.deliveries.map(({ pricingGroupId }) => pricingGroupId),
+    ["external-shared-1", "external-shared-1"]);
+  assert.deepEqual(body.sharedTrips, [{
+    id: "external-shared-1",
+    classification: "viagem",
+    routeType: "balanced",
+    deliveryIndexes: [0, 1],
+    distanceKm: 35,
+    price: 39,
+  }]);
+  assert.equal(body.totalPrice, 39);
+});
+
+test("uma única viagem externa continua com preço e circuito individuais", async () => {
+  const { body } = await requestQuote({ pickup: "Coleta", deliveries: ["Local", "Externa"] });
+  assert.equal(body.sharedTrips, undefined);
+  assert.deepEqual(body.deliveries.map(({ price }) => price), [15, 34]);
+  assert.equal(body.totalPrice, 49);
 });

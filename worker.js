@@ -1,4 +1,5 @@
 const RATE_PER_KM = 1.1;
+const MAX_DELIVERIES = 20;
 const GEOCODE_CACHE_TTL_SECONDS = 86400;
 const GEOCODE_MIN_CONFIDENCE = 0.2;
 const GEOCODE_MIN_CITY_CONFIDENCE = 0.5;
@@ -85,6 +86,13 @@ export default {
         );
       }
       telemetry.deliveryCount = deliveryAddresses.length;
+      if (deliveryAddresses.length > MAX_DELIVERIES) {
+        return json(
+          { error: `Cada orçamento aceita no máximo ${MAX_DELIVERIES} entregas.` },
+          400,
+          corsHeaders,
+        );
+      }
 
       const geocodes = new Map();
       const geocodeOnce = (address) => {
@@ -130,26 +138,68 @@ export default {
           routeType: isOutsideSBS ? "balanced" : "short",
         };
       });
-      const routes = await Promise.all(
-        quoteInputs.map(({ point, routeType }) =>
-          getRoute(
-            [base, pickupPoint, point, base],
-            env.GEOAPIFY_API_KEY,
-            routeType,
-            telemetry,
-          ),
-        ),
+      const sharedExternalIndexes = usesDeliveries
+        ? quoteInputs
+            .map((input, index) => input.isOutsideSBS ? index : -1)
+            .filter((index) => index >= 0)
+        : [];
+      const hasSharedExternalTrip = sharedExternalIndexes.length >= 2;
+
+      const individualRoutePromises = quoteInputs.map(({ point, routeType, isOutsideSBS }) =>
+        hasSharedExternalTrip && isOutsideSBS
+          ? Promise.resolve(null)
+          : getRoute(
+              [base, pickupPoint, point, base],
+              env.GEOAPIFY_API_KEY,
+              routeType,
+              telemetry,
+            ),
       );
+      const sharedExternalRoutePromise = hasSharedExternalTrip
+        ? getRoute(
+            [
+              base,
+              pickupPoint,
+              ...sharedExternalIndexes.map((index) => quoteInputs[index].point),
+              base,
+            ],
+            env.GEOAPIFY_API_KEY,
+            "balanced",
+            telemetry,
+          )
+        : Promise.resolve(null);
+
+      const [routes, sharedExternalRoute] = await Promise.all([
+        Promise.all(individualRoutePromises),
+        sharedExternalRoutePromise,
+      ]);
 
       if (
-        routes.some(
-          (route, index) => !route || (!quoteInputs[index].isOutsideSBS && route.oneWayKm === null),
-        )
+        (hasSharedExternalTrip && !sharedExternalRoute) ||
+        routes.some((route, index) => {
+          if (hasSharedExternalTrip && quoteInputs[index].isOutsideSBS) return false;
+          return !route || (!quoteInputs[index].isOutsideSBS && route.oneWayKm === null);
+        })
       ) {
         return json({ error: "Não foi possível calcular a rota." }, 502, corsHeaders);
       }
 
+      const sharedTripId = hasSharedExternalTrip ? "external-shared-1" : null;
       const deliveries = quoteInputs.map((input, index) => {
+        if (hasSharedExternalTrip && input.isOutsideSBS) {
+          return {
+            address: input.address,
+            classification: "viagem",
+            routeType: "balanced",
+            oneWayKm: null,
+            distanceKm: null,
+            relevantDistanceKm: null,
+            price: null,
+            pricingGroupId: sharedTripId,
+            delivery: { lat: input.point.lat, lon: input.point.lon },
+          };
+        }
+
         const route = routes[index];
         const specialRegion = input.isOutsideSBS
           ? null
@@ -176,9 +226,29 @@ export default {
           delivery: { lat: input.point.lat, lon: input.point.lon },
         };
       });
-      const totalPrice = deliveries.reduce((total, item) => total + item.price, 0);
+
+      const sharedTrips = hasSharedExternalTrip
+        ? [{
+            id: sharedTripId,
+            classification: "viagem",
+            routeType: "balanced",
+            deliveryIndexes: sharedExternalIndexes,
+            distanceKm: sharedExternalRoute.distanceKm,
+            price: calculatePrice({
+              isOutsideSBS: true,
+              totalKm: sharedExternalRoute.distanceKm,
+            }),
+          }]
+        : [];
+      const totalPrice =
+        deliveries.reduce(
+          (total, item) => total + (Number.isSafeInteger(item.price) ? item.price : 0),
+          0,
+        ) +
+        sharedTrips.reduce((total, trip) => total + trip.price, 0);
 
       const response = { ok: true, deliveries, totalPrice };
+      if (sharedTrips.length) response.sharedTrips = sharedTrips;
       if (!usesDeliveries) {
         const result = deliveries[0];
         Object.assign(response, {

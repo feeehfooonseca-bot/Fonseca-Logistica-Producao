@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { ROUTE_API, requestOfficialQuote } from "./frontend-quote.mjs";
+import { MAX_DELIVERIES, ROUTE_API, requestOfficialQuote } from "./frontend-quote.mjs";
 
 function response(body, { ok = true } = {}) {
   return { ok, async json() { return body; } };
@@ -27,6 +27,33 @@ test("envia uma entrega no contrato moderno do Worker", async () => {
     deliveries: ["Entrega A"],
   });
   assert.equal(quote.totalPrice, 15);
+});
+
+test("frontend aceita 20 entregas e rejeita 21 sem chamar o Worker", async () => {
+  assert.equal(MAX_DELIVERIES, 20);
+  const deliveries = Array.from({ length: MAX_DELIVERIES }, (_, index) => ({
+    address: `Entrega ${index + 1}`,
+  }));
+  let calls = 0;
+  const fetchImpl = async (_url, options) => {
+    calls++;
+    const requested = JSON.parse(options.body).deliveries;
+    return response({
+      ok: true,
+      deliveries: requested.map((address) => ({ address, price: 15, distanceKm: 10 })),
+      totalPrice: 300,
+    });
+  };
+
+  const quote = await requestOfficialQuote("Coleta", deliveries, fetchImpl);
+  assert.equal(quote.deliveries.length, 20);
+  assert.equal(calls, 1);
+
+  await assert.rejects(
+    requestOfficialQuote("Coleta", [...deliveries, { address: "Entrega 21" }], fetchImpl),
+    /no máximo 20 entregas/,
+  );
+  assert.equal(calls, 1);
 });
 
 test("preserva múltiplas entregas, ordem, preços individuais e soma oficial", async () => {
@@ -70,10 +97,22 @@ test("contrato real frontend e Worker preserva ordem, cálculo individual e soma
   const worker = await import(
     `data:text/javascript;base64,${Buffer.from(workerSource).toString("base64")}`
   );
+  const geocodePoint = (lat, lon, city) => ({
+    lat,
+    lon,
+    city,
+    result_type: "street",
+    rank: {
+      confidence: 1,
+      confidence_city_level: 1,
+      confidence_street_level: 1,
+      match_type: "full_match",
+    },
+  });
   const points = {
-    Coleta: { lat: -26.2, lon: -49.2, city: "São Bento do Sul" },
-    Local: { lat: -26.3, lon: -49.3, city: "São Bento do Sul" },
-    Externa: { lat: -26.4, lon: -49.4, city: "Campo Alegre" },
+    Coleta: geocodePoint(-26.2, -49.2, "São Bento do Sul"),
+    Local: geocodePoint(-26.3, -49.3, "São Bento do Sul"),
+    Externa: geocodePoint(-26.4, -49.4, "Campo Alegre"),
   };
   const originalFetch = globalThis.fetch;
   const originalCaches = globalThis.caches;
@@ -160,9 +199,90 @@ test("propaga erro controlado do Worker e trata resposta não JSON", async () =>
 
 test("HTML local inicializa a calculadora sem depender de módulo externo", async () => {
   const localHtml = await readFile(new URL("./TESTE-LOCAL-CELULAR.html", import.meta.url), "utf8");
+  const indexHtml = await readFile(new URL("./index.html", import.meta.url), "utf8");
   assert.doesNotMatch(localHtml, /import\s+\{?\s*requestOfficialQuote/);
   assert.doesNotMatch(localHtml, /src=["'][^"']*frontend-quote\.mjs/);
   assert.doesNotMatch(localHtml, /<script\s+type=["']module["'][^>]*>/);
   assert.match(localHtml, /async function requestOfficialQuote\(pickup,deliveries\)/);
   assert.match(localHtml, /await requestOfficialQuote\(pickup,deliveries\)/);
+  assert.match(localHtml, /delivery\.pricingGroupId===sharedTrip\.id/);
+  assert.match(localHtml, /delivery\.price===null&&delivery\.distanceKm===null/);
+  assert.match(localHtml, /Incluída na viagem compartilhada/);
+  assert.match(localHtml, /Viagem compartilhada — entregas/);
+  assert.match(localHtml, /Valor da viagem:/);
+  assert.match(localHtml, /sharedTrips\.reduce\(\(a,x\)=>a\+Number\(x\.distanceKm\),0\)/);
+  assert.match(indexHtml, /import \{ MAX_DELIVERIES, requestOfficialQuote \}/);
+  assert.match(localHtml, /MAX_DELIVERIES=20/);
+  for (const html of [indexHtml, localHtml]) {
+    assert.match(html, /length>=MAX_DELIVERIES/);
+    assert.match(html, /Limite de \$\{MAX_DELIVERIES\} entregas atingido/);
+  }
+});
+
+
+test("aceita orçamento com duas viagens externas em grupo compartilhado", async () => {
+  const deliveries = [{ address: "Campo Alegre" }, { address: "Joinville" }];
+  const quote = await requestOfficialQuote("Coleta", deliveries, async () => response({
+    ok: true,
+    deliveries: [
+      {
+        address: "Campo Alegre",
+        classification: "viagem",
+        routeType: "balanced",
+        price: null,
+        distanceKm: null,
+        pricingGroupId: "external-shared-1",
+      },
+      {
+        address: "Joinville",
+        classification: "viagem",
+        routeType: "balanced",
+        price: null,
+        distanceKm: null,
+        pricingGroupId: "external-shared-1",
+      },
+    ],
+    sharedTrips: [{
+      id: "external-shared-1",
+      classification: "viagem",
+      routeType: "balanced",
+      deliveryIndexes: [0, 1],
+      distanceKm: 150,
+      price: 165,
+    }],
+    totalPrice: 165,
+  }));
+
+  assert.equal(quote.totalPrice, 165);
+  assert.equal(quote.sharedTrips[0].price, 165);
+});
+
+test("rejeita grupo compartilhado adulterado ou total incompatível", async (t) => {
+  const deliveries = [{ address: "A" }, { address: "B" }];
+  const base = {
+    ok: true,
+    deliveries: [
+      { address: "A", classification: "viagem", routeType: "balanced", price: null, distanceKm: null, pricingGroupId: "g" },
+      { address: "B", classification: "viagem", routeType: "balanced", price: null, distanceKm: null, pricingGroupId: "g" },
+    ],
+    sharedTrips: [{
+      id: "g", classification: "viagem", routeType: "balanced",
+      deliveryIndexes: [0, 1], distanceKm: 100, price: 110,
+    }],
+    totalPrice: 110,
+  };
+  const invalid = [
+    { ...base, totalPrice: 109 },
+    { ...base, sharedTrips: [{ ...base.sharedTrips[0], deliveryIndexes: [0] }] },
+    { ...base, sharedTrips: [{ ...base.sharedTrips[0], routeType: "short" }] },
+    { ...base, deliveries: [{ ...base.deliveries[0], price: 1 }, base.deliveries[1]] },
+  ];
+  for (const quote of invalid) {
+    await t.test(JSON.stringify(quote), async () => {
+      await assert.rejects(
+        requestOfficialQuote("Coleta", deliveries, async () => response(quote)),
+        /orçamento inválido/,
+      );
+    });
+  }
 });
