@@ -4,6 +4,9 @@ const GEOCODE_CACHE_TTL_SECONDS = 86400;
 const GEOCODE_MIN_CONFIDENCE = 0.2;
 const GEOCODE_MIN_CITY_CONFIDENCE = 0.5;
 const GEOCODE_MIN_STREET_CONFIDENCE = 0.5;
+const QUOTE_PROOF_VERSION = 1;
+const QUOTE_TTL_SECONDS = 30 * 60;
+const CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 const LOW_PRECISION_GEOCODE_RESULT_TYPES = new Set([
   "unknown", "suburb", "district", "postcode", "city", "county", "state", "country",
 ]);
@@ -20,6 +23,28 @@ const SPECIAL_REGIONS = [
 
 export default {
   async fetch(request, env) {
+    const url = new URL(request.url);
+    const corsHeaders = corsHeadersFor(request.headers.get("Origin"), env.ALLOWED_ORIGINS);
+    if (request.headers.get("Origin") && !corsHeaders) {
+      return json({ error: "Origem não autorizada." }, 403);
+    }
+    if (request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: {
+        ...corsHeaders, "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type", "Access-Control-Max-Age": "86400",
+      } });
+    }
+    if (url.pathname === "/quote/submit") {
+      if (request.method !== "POST") return json({ error: "Método não permitido." }, 405, corsHeaders);
+      return submitQuote(request, env, corsHeaders);
+    }
+    if (url.pathname.startsWith("/quote/verify/")) {
+      if (request.method !== "GET") return json({ error: "Método não permitido." }, 405, corsHeaders);
+      return verifyQuote(url.pathname.slice("/quote/verify/".length), env);
+    }
+    if (url.pathname !== "/" && url.pathname !== "/quote") {
+      return json({ error: "Rota não encontrada." }, 404, corsHeaders);
+    }
     const startedAt = Date.now();
     const telemetry = {
       event: "quote_processing",
@@ -30,25 +55,6 @@ export default {
       geocodeCacheMisses: 0,
       technicalErrors: 0,
     };
-    const origin = request.headers.get("Origin");
-    const corsHeaders = corsHeadersFor(origin, env.ALLOWED_ORIGINS);
-
-    if (origin && !corsHeaders) {
-      return json({ error: "Origem não autorizada." }, 403);
-    }
-
-    if (request.method === "OPTIONS") {
-      return new Response(null, {
-        status: 204,
-        headers: {
-          ...corsHeaders,
-          "Access-Control-Allow-Methods": "POST, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type",
-          "Access-Control-Max-Age": "86400",
-        },
-      });
-    }
-
     if (request.method !== "POST") {
       return json({ error: "Método não permitido." }, 405, corsHeaders);
     }
@@ -264,6 +270,21 @@ export default {
         });
       }
 
+      if (env.QUOTE_SIGNING_SECRET) {
+        const snapshot = {
+          version: QUOTE_PROOF_VERSION,
+          pickup,
+          deliveries: deliveries.map(({ delivery: _coordinates, ...item }) => item),
+          sharedTrips,
+          totalPrice,
+          totalDistanceKm: officialTotalDistance(deliveries, sharedTrips),
+        };
+        response.protectedQuote = {
+          snapshot,
+          proof: await createProof(snapshot, env.QUOTE_SIGNING_SECRET, env.QUOTE_PROOF_TTL_SECONDS),
+        };
+      }
+
       return json(response, 200, corsHeaders);
     } catch {
       telemetry.technicalErrors += 1;
@@ -277,6 +298,147 @@ export default {
     }
   },
 };
+
+async function createProof(snapshot, secret, configuredTtl) {
+  const issuedAt = Math.floor(Date.now() / 1000);
+  const requestedTtl = Number(configuredTtl);
+  const ttl = Number.isInteger(requestedTtl) && requestedTtl >= 60 && requestedTtl <= 3600
+    ? requestedTtl : QUOTE_TTL_SECONDS;
+  const unsigned = {
+    version: QUOTE_PROOF_VERSION,
+    jti: randomToken(24),
+    issuedAt,
+    expiresAt: issuedAt + ttl,
+    snapshotHash: await sha256(canonicalJson(snapshot)),
+  };
+  return { ...unsigned, signature: await hmac(unsigned, secret) };
+}
+
+async function submitQuote(request, env, corsHeaders) {
+  if (!env.QUOTE_SIGNING_SECRET) return json({ error: "Confirmação protegida indisponível." }, 503, corsHeaders);
+  if (!env.QUOTE_DB) return json({ error: "Armazenamento de orçamento indisponível." }, 503, corsHeaders);
+  let body;
+  try { body = await request.json(); } catch { return json({ error: "JSON inválido." }, 400, corsHeaders); }
+  const proof = body?.proof;
+  const snapshot = body?.snapshot;
+  if (!validProofShape(proof) || !validSnapshot(snapshot)) return json({ error: "Prova de orçamento inválida." }, 400, corsHeaders);
+  const expectedSignature = await hmac({
+    version: proof.version, jti: proof.jti, issuedAt: proof.issuedAt,
+    expiresAt: proof.expiresAt, snapshotHash: proof.snapshotHash,
+  }, env.QUOTE_SIGNING_SECRET);
+  const snapshotHash = await sha256(canonicalJson(snapshot));
+  if (!constantTimeEqual(proof.signature, expectedSignature) || !constantTimeEqual(proof.snapshotHash, snapshotHash)) {
+    return json({ error: "Prova de orçamento inválida." }, 400, corsHeaders);
+  }
+  if (proof.expiresAt <= Math.floor(Date.now() / 1000)) return json({ error: "Prova de orçamento expirada." }, 410, corsHeaders);
+  const details = validateDetails(body.details);
+  if (!details) return json({ error: "Dados complementares inválidos." }, 400, corsHeaders);
+
+  const existing = await first(env.QUOTE_DB, "SELECT code, created_at, expires_at FROM protected_quotes WHERE quote_jti = ?", proof.jti);
+  if (existing) return json(publicRecord(existing, null, request.url), 200, corsHeaders);
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const code = `FL-${randomFromAlphabet(8)}`;
+    const publicToken = randomToken(32);
+    const tokenHash = await sha256(publicToken);
+    try {
+      await run(env.QUOTE_DB, `INSERT INTO protected_quotes
+        (code, public_token_hash, quote_jti, status, created_at, expires_at, pickup,
+         deliveries_json, official_quote_json, total_price, total_distance_km, source,
+         customer_name, pickup_ref, delivery_refs_json, timing_mode, scheduled_at,
+         item_description, invoice_required)
+        VALUES (?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      code, tokenHash, proof.jti, new Date().toISOString(), new Date(proof.expiresAt * 1000).toISOString(),
+      snapshot.pickup, JSON.stringify(snapshot.deliveries), JSON.stringify(snapshot), snapshot.totalPrice,
+      snapshot.totalDistanceKm, details.source, details.name, details.pickupRef,
+      JSON.stringify(details.deliveryRefs), details.timingMode, details.scheduledAt,
+      details.item, details.invoiceRequired);
+      const record = await first(env.QUOTE_DB, "SELECT code, created_at, expires_at FROM protected_quotes WHERE quote_jti = ?", proof.jti);
+      return json(publicRecord(record || { code, created_at: new Date().toISOString(), expires_at: new Date(proof.expiresAt * 1000).toISOString() }, publicToken, request.url), 201, corsHeaders);
+    } catch (error) {
+      const concurrent = await first(env.QUOTE_DB, "SELECT code, created_at, expires_at FROM protected_quotes WHERE quote_jti = ?", proof.jti);
+      if (concurrent) return json(publicRecord(concurrent, null, request.url), 200, corsHeaders);
+      if (attempt === 4) return json({ error: "Não foi possível gerar o código do orçamento." }, 503, corsHeaders);
+    }
+  }
+}
+
+async function verifyQuote(token, env) {
+  const headers = secureHtmlHeaders();
+  if (!env.QUOTE_DB || !/^[A-Za-z0-9_-]{40,80}$/.test(token)) return htmlVerification(null, headers);
+  const record = await first(env.QUOTE_DB, `SELECT code, status, created_at, expires_at, pickup,
+    deliveries_json, total_price, total_distance_km, timing_mode, scheduled_at
+    FROM protected_quotes WHERE public_token_hash = ?`, await sha256(token));
+  return htmlVerification(record, headers);
+}
+
+function htmlVerification(record, headers) {
+  let state = "🔴 INVÁLIDO / NÃO ENCONTRADO";
+  if (record) state = record.status === "active" && Date.parse(record.expires_at) > Date.now() ? "🟢 VÁLIDO" : "🟡 EXPIRADO";
+  let deliveries = [];
+  try { deliveries = JSON.parse(record?.deliveries_json || "[]"); } catch { deliveries = []; }
+  const destinations = deliveries.map((item) => `<li>${escapeHtml(item.address)}</li>`).join("");
+  const content = record ? `<dl><dt>Código</dt><dd>${escapeHtml(record.code)}</dd><dt>Coleta</dt><dd>${escapeHtml(record.pickup)}</dd><dt>Destinos</dt><dd><ol>${destinations}</ol></dd><dt>Distância</dt><dd>${escapeHtml(record.total_distance_km)} km</dd><dt>Valor</dt><dd>R$ ${escapeHtml(record.total_price)}</dd><dt>Solicitado</dt><dd>${escapeHtml(record.created_at)}</dd>${record.scheduled_at ? `<dt>Agendamento</dt><dd>${escapeHtml(record.scheduled_at)}</dd>` : ""}<dt>Validade</dt><dd>${escapeHtml(record.expires_at)}</dd></dl>` : "";
+  return new Response(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Verificação de orçamento</title></head><body><main><h1>${state}</h1>${content}</main></body></html>`, { status: record ? 200 : 404, headers });
+}
+
+function validProofShape(value) {
+  return value?.version === QUOTE_PROOF_VERSION && /^[A-Za-z0-9_-]{20,80}$/.test(value.jti) &&
+    Number.isInteger(value.issuedAt) && Number.isInteger(value.expiresAt) &&
+    /^[a-f0-9]{64}$/.test(value.snapshotHash) && /^[a-f0-9]{64}$/.test(value.signature);
+}
+
+function validSnapshot(value) {
+  return value?.version === QUOTE_PROOF_VERSION && validAddress(value.pickup) &&
+    Array.isArray(value.deliveries) && value.deliveries.length > 0 && value.deliveries.length <= MAX_DELIVERIES &&
+    Array.isArray(value.sharedTrips) && Number.isSafeInteger(value.totalPrice) && value.totalPrice >= 0 &&
+    typeof value.totalDistanceKm === "number" && Number.isFinite(value.totalDistanceKm) && value.totalDistanceKm >= 0;
+}
+
+function validateDetails(value = {}) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const limited = (input, max) => input == null ? null : typeof input === "string" && input.trim().length <= max ? input.trim() : undefined;
+  const deliveryRefs = value.deliveryRefs ?? [];
+  const result = {
+    name: limited(value.name, 120), pickupRef: limited(value.pickupRef, 200), item: limited(value.item, 200),
+    scheduledAt: limited(value.scheduledAt, 40), source: limited(value.source, 40), deliveryRefs,
+    timingMode: value.timingMode ?? null, invoiceRequired: value.invoiceRequired ?? null,
+  };
+  if (Object.values(result).includes(undefined) || !Array.isArray(deliveryRefs) || deliveryRefs.length > MAX_DELIVERIES ||
+      deliveryRefs.some((item) => limited(item, 200) === undefined) ||
+      (result.source && !/^[A-Za-z0-9._-]+$/.test(result.source)) ||
+      ![null, "now", "scheduled"].includes(result.timingMode) ||
+      ![null, true, false].includes(result.invoiceRequired)) return null;
+  result.deliveryRefs = deliveryRefs.map((item) => item.trim());
+  return result;
+}
+
+function officialTotalDistance(deliveries, sharedTrips) {
+  return Math.round((deliveries.reduce((sum, item) => sum + (typeof item.distanceKm === "number" ? item.distanceKm : 0), 0) +
+    sharedTrips.reduce((sum, item) => sum + item.distanceKm, 0)) * 10) / 10;
+}
+
+function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value && typeof value === "object") return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
+  return JSON.stringify(value);
+}
+
+async function hmac(value, secret) {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return hex(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(canonicalJson(value))));
+}
+async function sha256(value) { return hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value))); }
+function hex(buffer) { return [...new Uint8Array(buffer)].map((byte) => byte.toString(16).padStart(2, "0")).join(""); }
+function constantTimeEqual(a, b) { if (typeof a !== "string" || a.length !== b.length) return false; let different = 0; for (let i = 0; i < a.length; i += 1) different |= a.charCodeAt(i) ^ b.charCodeAt(i); return different === 0; }
+function randomToken(bytes) { const data = crypto.getRandomValues(new Uint8Array(bytes)); return base64Url(data); }
+function base64Url(bytes) { let value = ""; for (const byte of bytes) value += String.fromCharCode(byte); return btoa(value).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
+function randomFromAlphabet(length) { const bytes = crypto.getRandomValues(new Uint8Array(length)); return [...bytes].map((byte) => CODE_ALPHABET[byte % CODE_ALPHABET.length]).join(""); }
+function first(db, sql, ...values) { return db.prepare(sql).bind(...values).first(); }
+function run(db, sql, ...values) { return db.prepare(sql).bind(...values).run(); }
+function publicRecord(record, token, requestUrl) { return { ok: true, code: record.code, createdAt: record.created_at, expiresAt: record.expires_at, verificationUrl: token ? `${new URL(requestUrl).origin}/quote/verify/${token}` : null, idempotent: !token }; }
+function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]); }
+function secureHtmlHeaders() { return { "Content-Type": "text/html; charset=UTF-8", "Cache-Control": "no-store", "Content-Security-Policy": "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'", "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Referrer-Policy": "no-referrer" }; }
 
 export function calculatePrice({
   deliveryAddress,
