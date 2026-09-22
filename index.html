@@ -170,13 +170,13 @@ footer{padding:55px 0;border-top:1px solid var(--line)}.footer-inner{display:gri
 /* V21 — Calculadora de coleta
    Uma única regra de espaçamento/âncora para evitar conflitos de cascade. */
 .calc-section{
-  padding:0 0 24px;
+  padding:32px 0 40px;
   background:linear-gradient(180deg,#080808 0%,#0c0c0d 100%);
-  scroll-margin-top:78px;
+  scroll-margin-top:0;
 }
 .calc-section-title{margin:0 0 18px;font-size:.78rem;letter-spacing:.13em;text-transform:uppercase;color:#8f8f95;font-weight:800}
 @media(max-width:700px){
-  .calc-section{padding:0 0 24px;scroll-margin-top:66px}
+  .calc-section{padding:24px 0 32px;scroll-margin-top:0}
   .calc-section .eyebrow{margin-bottom:10px}
   .calc-section h2{margin-bottom:8px}
   .calc-section .calc-intro{margin:0 0 14px}
@@ -1405,6 +1405,34 @@ $('dcConfirm').onclick=async()=>{const button=$('dcConfirm');if(button.disabled)
 
 
 
+<script id="quote-section-viewport-position">
+(function(){
+  const section=document.getElementById('calcular-rota');
+  if(!section)return;
+
+  function openCalculator(event){
+    if(event.defaultPrevented || event.button!==0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)return;
+    event.preventDefault();
+
+    const header=document.querySelector('.topbar');
+    const headerHeight=header ? header.getBoundingClientRect().height : 0;
+    const rect=section.getBoundingClientRect();
+    const pageTop=window.scrollY + rect.top;
+    const available=Math.max(0,window.innerHeight-headerHeight);
+    const sectionHeight=section.getBoundingClientRect().height;
+    const offset=sectionHeight < available
+      ? headerHeight + Math.max(0,(available-sectionHeight)/2)
+      : headerHeight;
+
+    window.scrollTo({top:Math.max(0,pageTop-offset),behavior:'smooth'});
+    history.replaceState(null,'','#calcular-rota');
+  }
+
+  document.querySelectorAll('a[href="#calcular-rota"]').forEach(link=>{
+    link.addEventListener('click',openCalculator);
+  });
+})();
+</script>
 <script id="v169-photo-header-trigger">
 (function(){
   function init(){
