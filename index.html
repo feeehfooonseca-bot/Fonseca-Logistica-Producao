@@ -1431,26 +1431,11 @@ $('dcConfirm').onclick=async()=>{const button=$('dcConfirm');if(button.disabled)
   const section=document.getElementById('calcular-rota');
   if(!section)return;
 
-  function focusCalculator(){
-    document.documentElement.style.scrollBehavior='auto';
-    section.scrollIntoView({block:'start',behavior:'auto'});
-    document.documentElement.style.scrollBehavior='';
+  const isDirectCalculator=location.pathname==='/frete'||location.pathname==='/frete/'||location.hash==='#calcular-rota';
+
+  if(isDirectCalculator && location.hash!=='#calcular-rota'){
+    requestAnimationFrame(()=>{ location.hash='calcular-rota'; });
   }
-
-  function openCalculator(event){
-    if(event && (event.defaultPrevented || event.button!==0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey))return;
-    if(event)event.preventDefault();
-
-    history.replaceState(null,'',location.pathname+'#calcular-rota');
-    requestAnimationFrame(focusCalculator);
-  }
-
-  document.querySelectorAll('a[href="#calcular-rota"]').forEach(link=>{
-    link.addEventListener('click',openCalculator);
-  });
-
-  const directOpen=location.pathname==='/frete'||location.pathname==='/frete/'||location.hash==='#calcular-rota';
-  if(directOpen)requestAnimationFrame(focusCalculator);
 })();
 </script>
 <script id="v169-photo-header-trigger">
