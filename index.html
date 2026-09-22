@@ -1452,37 +1452,27 @@ $('dcConfirm').onclick=async()=>{const button=$('dcConfirm');if(button.disabled)
     const sectionHeight=section.getBoundingClientRect().height;
     const viewportPadding=16;
 
-    // Usa a área visual real do navegador móvel, não a viewport de layout.
-    // Quando cabe, centraliza; quando não cabe, começa logo abaixo do header.
+    // Mede a viewport uma única vez e aplica um alvo absoluto.
+    // Não usa animação nem reage a resize durante a abertura, evitando
+    // que a transição das barras do navegador altere o enquadramento.
     const contentOffset=sectionHeight <= available
       ? headerHeight + Math.max(viewportPadding,(available-sectionHeight)/2)
       : headerHeight + viewportPadding;
 
-    window.scrollTo({top:Math.max(0,pageTop-contentOffset),behavior:'smooth'});
+    window.scrollTo(0,Math.max(0,pageTop-contentOffset));
     history.replaceState(null,'','#calcular-rota');
   }
+
+  const scheduleOpen=()=>{
+    requestAnimationFrame(()=>requestAnimationFrame(()=>openCalculator(null)));
+  };
 
   document.querySelectorAll('a[href="#calcular-rota"]').forEach(link=>{
     link.addEventListener('click',openCalculator);
   });
 
   const directOpen=location.pathname==='/frete'||location.pathname==='/frete/'||location.hash==='#calcular-rota';
-  if(directOpen){
-    requestAnimationFrame(()=>requestAnimationFrame(()=>openCalculator(null)));
-  }
-
-  // Se o navegador móvel alterar a área visual ao mostrar/ocultar suas barras,
-  // refaz o enquadramento somente quando essa área realmente mudar.
-  let lastViewportHeight=viewportHeight();
-  const syncAfterViewportChange=()=>{
-    const next=viewportHeight();
-    if(Math.abs(next-lastViewportHeight)<1)return;
-    lastViewportHeight=next;
-    if(location.hash==='#calcular-rota')requestAnimationFrame(()=>openCalculator(null));
-  };
-  const vv=window.visualViewport;
-  if(vv)vv.addEventListener('resize',syncAfterViewportChange,{passive:true});
-  window.addEventListener('resize',syncAfterViewportChange,{passive:true});
+  if(directOpen)scheduleOpen();
 })();
 </script>
 <script id="v169-photo-header-trigger">
