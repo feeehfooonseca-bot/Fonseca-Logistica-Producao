@@ -172,11 +172,11 @@ footer{padding:55px 0;border-top:1px solid var(--line)}.footer-inner{display:gri
 .calc-section{
   padding:32px 0 calc(40px + env(safe-area-inset-bottom, 0px));
   background:linear-gradient(180deg,#080808 0%,#0c0c0d 100%);
-  scroll-margin-top:0;
+  scroll-margin-top:66px;
 }
 .calc-section-title{margin:0 0 18px;font-size:.78rem;letter-spacing:.13em;text-transform:uppercase;color:#8f8f95;font-weight:800}
 @media(max-width:700px){
-  .calc-section{padding:24px 0 calc(32px + env(safe-area-inset-bottom, 0px));scroll-margin-top:0}
+  .calc-section{padding:24px 0 calc(32px + env(safe-area-inset-bottom, 0px));scroll-margin-top:66px}
   .calc-section .eyebrow{margin-bottom:10px}
   .calc-section h2{margin-bottom:8px}
   .calc-section .calc-intro{margin:0 0 14px}
@@ -1426,75 +1426,31 @@ $('dcConfirm').onclick=async()=>{const button=$('dcConfirm');if(button.disabled)
  strip.addEventListener('scroll',()=>{if(!raf)raf=requestAnimationFrame(sync)},{passive:true});addEventListener('resize',sync,{passive:true});sync();
 })();
 </script>
-<!-- V12.9: camada de segurança de produção preparada; visual V12.8 e preços V21.11 preservados. -->
-
-
-
-<script id="quote-section-viewport-position">
+<!-- V12.9: camada de segurança de produção preparada; visual V12.8 e preços V21.11 preservados. -<script id="quote-section-viewport-position">
 (function(){
   const section=document.getElementById('calcular-rota');
   if(!section)return;
 
-  function viewportHeight(){
-    const vv=window.visualViewport;
-    return vv && vv.height ? vv.height : window.innerHeight;
+  function focusCalculator(){
+    document.documentElement.style.scrollBehavior='auto';
+    section.scrollIntoView({block:'start',behavior:'auto'});
+    document.documentElement.style.scrollBehavior='';
   }
 
   function openCalculator(event){
     if(event && (event.defaultPrevented || event.button!==0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey))return;
-    if(event) event.preventDefault();
+    if(event)event.preventDefault();
 
-    const header=document.querySelector('.topbar');
-    const headerHeight=header ? header.getBoundingClientRect().height : 0;
-    const rect=section.getBoundingClientRect();
-    const pageTop=window.scrollY + rect.top;
-    const available=Math.max(0,viewportHeight()-headerHeight);
-    const sectionHeight=section.getBoundingClientRect().height;
-    const viewportPadding=16;
-
-    // Mede a viewport uma única vez e aplica um alvo absoluto.
-    // Não usa animação nem reage a resize durante a abertura, evitando
-    // que a transição das barras do navegador altere o enquadramento.
-    const contentOffset=sectionHeight <= available
-      ? headerHeight + Math.max(viewportPadding,(available-sectionHeight)/2)
-      : headerHeight + viewportPadding;
-
-    document.documentElement.style.scrollBehavior='auto';
-    window.scrollTo(0,Math.max(0,pageTop-contentOffset));
-    document.documentElement.style.scrollBehavior='';
-    history.replaceState(null,'','#calcular-rota');
+    history.replaceState(null,'',location.pathname+'#calcular-rota');
+    requestAnimationFrame(focusCalculator);
   }
-
-  async function waitForLayout(){
-    if(document.fonts && document.fonts.ready){
-      try{await document.fonts.ready}catch{}
-    }
-
-    const pendingImages=Array.from(document.images).filter(img=>{
-      return !img.loading || img.loading!=='lazy';
-    }).filter(img=>!img.complete);
-
-    if(pendingImages.length){
-      await Promise.all(pendingImages.map(img=>new Promise(resolve=>{
-        img.addEventListener('load',resolve,{once:true});
-        img.addEventListener('error',resolve,{once:true});
-      })));
-    }
-
-    await new Promise(resolve=>requestAnimationFrame(resolve));
-    await new Promise(resolve=>requestAnimationFrame(resolve));
-  }
-
-  const scheduleOpen=()=>{
-    waitForLayout().then(()=>openCalculator(null));
-  };
 
   document.querySelectorAll('a[href="#calcular-rota"]').forEach(link=>{
     link.addEventListener('click',openCalculator);
   });
 
   const directOpen=location.pathname==='/frete'||location.pathname==='/frete/'||location.hash==='#calcular-rota';
-  if(directOpen)scheduleOpen();
+  if(directOpen)requestAnimationFrame(focusCalculator);
 })();
 </script>
 <script id="v169-photo-header-trigger">
