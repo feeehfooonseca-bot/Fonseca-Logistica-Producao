@@ -1459,7 +1459,9 @@ $('dcConfirm').onclick=async()=>{const button=$('dcConfirm');if(button.disabled)
       ? headerHeight + Math.max(viewportPadding,(available-sectionHeight)/2)
       : headerHeight + viewportPadding;
 
+    document.documentElement.style.scrollBehavior='auto';
     window.scrollTo(0,Math.max(0,pageTop-contentOffset));
+    document.documentElement.style.scrollBehavior='';
     history.replaceState(null,'','#calcular-rota');
   }
 
