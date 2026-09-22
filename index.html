@@ -1436,8 +1436,8 @@ $('dcConfirm').onclick=async()=>{const button=$('dcConfirm');if(button.disabled)
   if(!section)return;
 
   function openCalculator(event){
-    if(event.defaultPrevented || event.button!==0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)return;
-    event.preventDefault();
+    if(event && (event.defaultPrevented || event.button!==0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey))return;
+    if(event) event.preventDefault();
 
     const header=document.querySelector('.topbar');
     const headerHeight=header ? header.getBoundingClientRect().height : 0;
@@ -1457,6 +1457,9 @@ $('dcConfirm').onclick=async()=>{const button=$('dcConfirm');if(button.disabled)
   document.querySelectorAll('a[href="#calcular-rota"]').forEach(link=>{
     link.addEventListener('click',openCalculator);
   });
+  if(location.pathname==='/frete'||location.pathname==='/frete/'||location.hash==='#calcular-rota'){
+    requestAnimationFrame(()=>requestAnimationFrame(()=>openCalculator(null)));
+  }
 })();
 </script>
 <script id="v169-photo-header-trigger">
