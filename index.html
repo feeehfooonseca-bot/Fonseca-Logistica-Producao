@@ -1420,9 +1420,10 @@ $('dcConfirm').onclick=async()=>{const button=$('dcConfirm');if(button.disabled)
     const pageTop=window.scrollY + rect.top;
     const available=Math.max(0,window.innerHeight-headerHeight);
     const sectionHeight=section.getBoundingClientRect().height;
+    const viewportPadding=16;
     const offset=sectionHeight < available
-      ? headerHeight + Math.max(0,(available-sectionHeight)/2)
-      : headerHeight;
+      ? headerHeight + Math.max(viewportPadding,(available-sectionHeight)/2)
+      : headerHeight + viewportPadding;
 
     window.scrollTo({top:Math.max(0,pageTop-offset),behavior:'smooth'});
     history.replaceState(null,'','#calcular-rota');
