@@ -1435,6 +1435,11 @@ $('dcConfirm').onclick=async()=>{const button=$('dcConfirm');if(button.disabled)
   const section=document.getElementById('calcular-rota');
   if(!section)return;
 
+  function viewportHeight(){
+    const vv=window.visualViewport;
+    return vv && vv.height ? vv.height : window.innerHeight;
+  }
+
   function openCalculator(event){
     if(event && (event.defaultPrevented || event.button!==0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey))return;
     if(event) event.preventDefault();
@@ -1443,12 +1448,12 @@ $('dcConfirm').onclick=async()=>{const button=$('dcConfirm');if(button.disabled)
     const headerHeight=header ? header.getBoundingClientRect().height : 0;
     const rect=section.getBoundingClientRect();
     const pageTop=window.scrollY + rect.top;
-    const available=Math.max(0,window.innerHeight-headerHeight);
+    const available=Math.max(0,viewportHeight()-headerHeight);
     const sectionHeight=section.getBoundingClientRect().height;
     const viewportPadding=16;
 
-    // Quando a seção cabe inteira no espaço restante, centraliza o bloco completo.
-    // Quando não cabe, começa logo abaixo do header e mantém um respiro superior.
+    // Usa a área visual real do navegador móvel, não a viewport de layout.
+    // Quando cabe, centraliza; quando não cabe, começa logo abaixo do header.
     const contentOffset=sectionHeight <= available
       ? headerHeight + Math.max(viewportPadding,(available-sectionHeight)/2)
       : headerHeight + viewportPadding;
@@ -1460,9 +1465,24 @@ $('dcConfirm').onclick=async()=>{const button=$('dcConfirm');if(button.disabled)
   document.querySelectorAll('a[href="#calcular-rota"]').forEach(link=>{
     link.addEventListener('click',openCalculator);
   });
-  if(location.pathname==='/frete'||location.pathname==='/frete/'||location.hash==='#calcular-rota'){
+
+  const directOpen=location.pathname==='/frete'||location.pathname==='/frete/'||location.hash==='#calcular-rota';
+  if(directOpen){
     requestAnimationFrame(()=>requestAnimationFrame(()=>openCalculator(null)));
   }
+
+  // Se o navegador móvel alterar a área visual ao mostrar/ocultar suas barras,
+  // refaz o enquadramento somente quando essa área realmente mudar.
+  let lastViewportHeight=viewportHeight();
+  const syncAfterViewportChange=()=>{
+    const next=viewportHeight();
+    if(Math.abs(next-lastViewportHeight)<1)return;
+    lastViewportHeight=next;
+    if(location.hash==='#calcular-rota')requestAnimationFrame(()=>openCalculator(null));
+  };
+  const vv=window.visualViewport;
+  if(vv)vv.addEventListener('resize',syncAfterViewportChange,{passive:true});
+  window.addEventListener('resize',syncAfterViewportChange,{passive:true});
 })();
 </script>
 <script id="v169-photo-header-trigger">
