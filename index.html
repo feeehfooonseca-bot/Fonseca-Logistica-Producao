@@ -1076,6 +1076,55 @@ main{margin:0!important;padding:0!important}
 }
 
 .quote-step-confirm[hidden]{display:none!important}.quote-step-quick{padding-bottom:4px}.quote-step-quick .calc-section-title{margin-bottom:20px}.quote-step-quick .calc-grid{gap:0!important}.quote-step-quick .calc-field{margin-bottom:18px}.quick-result{margin-top:24px}.quick-price{font-size:clamp(42px,9vw,68px);line-height:1;font-weight:900;letter-spacing:-2px;color:#fff;margin:4px 0 14px}.quick-distance{color:#aaa;font-size:14px;margin-bottom:18px}.quick-distance strong{color:#fff}.quick-delivery-summary,.shared-trip-summary{display:grid;gap:7px}.quick-delivery-line,.quick-shared-line{padding:10px 0;border-top:1px solid rgba(255,255,255,.08);font-size:13px;color:#b9b9bd}.quick-shared-line{color:#ddd}.quote-continue{margin-top:22px;width:100%;font-size:14px;min-height:54px}.quote-edit{display:block;margin:13px auto 0;border:0;background:none;color:#8f8f95;font:inherit;font-size:12px;font-weight:700;cursor:pointer}.quote-edit:hover{color:#fff}.quote-step-confirm{margin-top:4px}.quote-step-confirm .calc-section-title{margin-bottom:18px}.quote-step-confirm .calc-field+.calc-field{margin-top:18px}.request-summary{margin-top:28px;padding:20px;border:1px solid #303034;border-radius:16px;background:#0a0a0b}.request-summary .calc-section-title{margin-bottom:8px}.summary-line{display:flex;justify-content:space-between;gap:18px;padding:12px 0;border-top:1px solid rgba(255,255,255,.08);font-size:13px}.summary-line span{color:#8f8f95}.summary-line strong{text-align:right;color:#fff}.summary-line small{color:#999;font-weight:400}.quote-step-confirm .calc-action{margin-top:22px}.delivery-ref-field{margin-top:18px!important}@media(max-width:680px){.quick-price{font-size:48px}.summary-line{align-items:flex-start;flex-direction:column;gap:4px}.summary-line strong{text-align:left}.quote-continue{min-height:58px}}
+
+/* V22 — correções de usabilidade desktop: menu e galerias */
+@media(min-width:761px){
+  .premium-nav-v122{
+    position:fixed!important;
+    top:82px!important;
+    right:clamp(28px,4vw,64px)!important;
+    width:min(720px,calc(100vw - 56px))!important;
+    max-height:calc(100dvh - 110px)!important;
+    overflow:auto!important;
+    z-index:999!important;
+    display:grid!important;
+    grid-template-columns:minmax(0,1.15fr) minmax(250px,.85fr)!important;
+    column-gap:42px!important;
+    align-content:start!important;
+    padding:34px!important;
+    background:#050506!important;
+    border:1px solid rgba(255,255,255,.09)!important;
+    border-radius:4px!important;
+    box-shadow:0 24px 70px rgba(0,0,0,.45)!important;
+  }
+  .premium-nav-v122 .menu-v122-main{min-width:0!important}
+  .premium-nav-v122 .menu-v122-label{margin:0 0 18px!important;color:#c8102e!important;font-size:10px!important;font-weight:800!important;letter-spacing:3.2px!important}
+  .premium-nav-v122 .menu-v122-main>a{display:grid!important;grid-template-columns:34px minmax(0,1fr)!important;align-items:center!important;gap:12px!important;padding:13px 0!important;border-bottom:1px solid rgba(255,255,255,.075)!important;text-decoration:none!important}
+  .premium-nav-v122 .menu-v122-main>a span{font-size:10px!important;font-weight:800!important;letter-spacing:1.5px!important;color:rgba(255,255,255,.28)!important}
+  .premium-nav-v122 .menu-v122-main>a b{font-size:20px!important;line-height:1.15!important;color:#f3f3f3!important;font-weight:650!important}
+  .premium-nav-v122 .menu-v122-actions{display:grid!important;align-content:start!important;gap:10px!important;margin:0!important}
+  .premium-nav-v122 .menu-v122-actions>a{position:relative!important;display:block!important;padding:16px 42px 16px 16px!important;border:1px solid rgba(255,255,255,.11)!important;text-decoration:none!important}
+  .premium-nav-v122 .menu-v122-actions small{display:block!important;margin-bottom:5px!important;color:rgba(255,255,255,.38)!important;font-size:8px!important;font-weight:800!important;letter-spacing:2px!important}
+  .premium-nav-v122 .menu-v122-actions strong{font-size:15px!important;color:#fff!important;font-weight:750!important}
+  .premium-nav-v122 .menu-v122-actions i{position:absolute!important;right:16px!important;top:50%!important;transform:translateY(-50%)!important;font-style:normal!important;color:#c8102e!important;font-size:17px!important}
+  .premium-nav-v122 .menu-v122-meta{grid-column:1/-1!important;display:flex!important;justify-content:space-between!important;gap:14px!important;margin-top:22px!important;padding-top:16px!important;border-top:1px solid rgba(255,255,255,.07)!important;color:rgba(255,255,255,.50)!important;font-size:10px!important;letter-spacing:.6px!important}
+  .premium-nav-v122 .menu-v122-meta a{padding:0!important;border:0!important;font-size:10px!important;font-weight:700!important;color:rgba(255,255,255,.55)!important;text-decoration:none!important}
+}
+@media(min-width:761px) and (max-height:700px){
+  .premium-nav-v122{top:70px!important;padding:24px!important;grid-template-columns:1fr 1fr!important;column-gap:28px!important;max-height:calc(100dvh - 88px)!important}
+  .premium-nav-v122 .menu-v122-main>a{padding:9px 0!important}
+  .premium-nav-v122 .menu-v122-main>a b{font-size:17px!important}
+  .premium-nav-v122 .menu-v122-actions>a{padding:12px 38px 12px 14px!important}
+}
+@media(min-width:761px){
+  .route-strip,.review-strip{cursor:grab;user-select:none;touch-action:pan-y}
+  .route-strip.is-dragging,.review-strip.is-dragging{cursor:grabbing;scroll-snap-type:none}
+  .route-strip img,.review-strip *{user-select:none}
+}
+/* V22 — reduzir somente o vazio visual entre o header e o enquadramento inicial do hero */
+@media(min-width:761px){
+  .hero-photo{min-height:calc(100svh - 12px)!important}
+}
 </style>
 </head>
 <body id="top">
@@ -1345,7 +1394,7 @@ const fillSummary=()=>{const ds=inputs();$('summaryPickup').textContent=$('dcPic
 $('requestQuoteBtn').onclick=()=>{if(!officialQuote||calculatedRouteKey!==routeKey()){invalidate();status('O orçamento anterior foi invalidado. Calcule novamente.',true);return;}renderRefs();fillSummary();$('quoteStepConfirm').hidden=false;$('quoteStepConfirm').scrollIntoView({behavior:'smooth',block:'start'});};
 $('editAddressesBtn').onclick=()=>{$('dcResult').classList.remove('show');$('quoteStepConfirm').hidden=true;$('dcPickup').focus();};
 $('backToQuoteBtn').onclick=()=>{$('quoteStepConfirm').hidden=true;$('dcResult').classList.add('show');$('dcResult').scrollIntoView({behavior:'smooth',block:'start'});};
-$('dcConfirm').onclick=async()=>{const button=$('dcConfirm');if(button.disabled)return;button.disabled=true;button.textContent='PROTEGENDO ORÇAMENTO…';try{if(!officialQuote||calculatedRouteKey!==routeKey())throw Error('O orçamento foi alterado. Volte e calcule novamente.');const name=$('dcName').value.trim(),item=$('dcItem').value.trim(),pickup=$('dcPickup').value.trim(),pr=$('dcPickupRef').value.trim(),ds=inputs();if(!name||!item)throw Error('Informe seu nome e o que será transportado.');if(!invoiceMode)throw Error('Informe se precisa de Nota Fiscal.');const w=when(),deliveryRefs=ds.map((d,i)=>$('dcDeliveryRef'+(i+1))?.value.trim()||''),scheduledAt=whenMode==='schedule'?$('dcDate').value+'T'+$('dcTime').value:null;const protection=await submitProtectedQuote(officialQuote,{name,pickupRef:pr,item,scheduledAt,source:origin||null,deliveryRefs,timingMode:whenMode==='schedule'?'scheduled':'now',invoiceRequired:invoiceMode==='yes'});const snapshot=officialQuote.protectedQuote.snapshot;track('quote_requested',{quote_code:protection.code,price:Number(snapshot?.totalPrice||officialQuote.totalPrice)||0});const km=Number(snapshot.totalDistanceKm);const lines=['Olá! Quero solicitar esta entrega pela Fonseca Logística.','','Nome: '+name,'','Coleta:',pickup];if(pr)lines.push('Complemento: '+pr);ds.forEach((d,i)=>{const ref=$('dcDeliveryRef'+(i+1))?.value.trim()||'';lines.push('','Entrega '+(i+1)+':',d.address);if(ref)lines.push('Complemento: '+ref);});lines.push('','Quando:',w,'Item: '+item,'Nota Fiscal: '+(invoiceMode==='yes'?'Sim':'Não'),'Distância: '+km.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+' km','Valor: '+money(snapshot.totalPrice),'','Orçamento oficial: '+protection.code,'Conferir orçamento oficial: '+protection.verificationUrl);if(origin)lines.push('','Origem: '+origin);lines.push('','Quero confirmar a disponibilidade para realizar a entrega.');const href='https://wa.me/'+WA+'?text='+encodeURIComponent(lines.join('\n'));$('dcWhatsapp').href=href;const win=window.open(href,'_blank','noopener');if(!win)location.href=href;cstatus('WhatsApp aberto com o orçamento oficial protegido.');}catch(e){cstatus(e.message||'Revise os dados antes de enviar.',true)}finally{button.disabled=false;button.textContent='CONFIRMAR PELO WHATSAPP';}};
+$('dcConfirm').onclick=async()=>{const button=$('dcConfirm');if(button.disabled)return;button.disabled=true;button.textContent='PROTEGENDO ORÇAMENTO…';try{if(!officialQuote||calculatedRouteKey!==routeKey())throw Error('O orçamento foi alterado. Volte e calcule novamente.');const name=$('dcName').value.trim(),item=$('dcItem').value.trim(),pickup=$('dcPickup').value.trim(),pr=$('dcPickupRef').value.trim(),ds=inputs();if(!name||!item)throw Error('Informe seu nome e o que será transportado.');if(!invoiceMode)throw Error('Informe se precisa de Nota Fiscal.');const w=when(),deliveryRefs=ds.map((d,i)=>$('dcDeliveryRef'+(i+1))?.value.trim()||''),scheduledAt=whenMode==='schedule'?$('dcDate').value+'T'+$('dcTime').value:null;const protection=await submitProtectedQuote(officialQuote,{name,pickupRef:pr,item,scheduledAt,source:origin||null,deliveryRefs,timingMode:whenMode==='schedule'?'scheduled':'now',invoiceRequired:invoiceMode==='yes'});const snapshot=officialQuote.protectedQuote.snapshot;track('quote_requested',{quote_code:protection.code,price:Number(snapshot?.totalPrice||officialQuote.totalPrice)||0});const km=Number(snapshot.totalDistanceKm);const timingText=whenMode==='now'?'para agora':'para '+w;const lines=['Olá! Me chamo '+name+' e gostaria de solicitar uma coleta '+timingText+'.','','📦 *COLETA*',pickup];if(pr)lines.push('Complemento: '+pr);ds.forEach((d,i)=>{const ref=$('dcDeliveryRef'+(i+1))?.value.trim()||'';lines.push('','📍 *ENTREGA'+(ds.length>1?' '+(i+1):'')+'*',d.address);if(ref)lines.push('Complemento: '+ref);});lines.push('','🛵 *TRANSPORTE*',item,'','🧾 *NOTA FISCAL*',invoiceMode==='yes'?'Preciso de Nota Fiscal':'Não preciso de Nota Fiscal','','📏 *DISTÂNCIA TOTAL*',km.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+' km','','💰 *VALOR ESTIMADO*',money(snapshot.totalPrice),'','Gostaria de confirmar a disponibilidade para esta coleta.','','Orçamento oficial: '+protection.code,'Conferir orçamento oficial: '+protection.verificationUrl);if(origin)lines.push('','Origem: '+origin);const href='https://wa.me/'+WA+'?text='+encodeURIComponent(lines.join('\n'));$('dcWhatsapp').href=href;const win=window.open(href,'_blank','noopener');if(!win)location.href=href;cstatus('WhatsApp aberto com o orçamento oficial protegido.');}catch(e){cstatus(e.message||'Revise os dados antes de enviar.',true)}finally{button.disabled=false;button.textContent='CONFIRMAR PELO WHATSAPP';}};
 })();
 </script>
 <script>
@@ -1414,5 +1463,20 @@ $('dcConfirm').onclick=async()=>{const button=$('dcConfirm');if(button.disabled)
 })();
 </script>
 
+
+<script id="desktop-gallery-drag">
+(function(){
+  function enable(selector){
+    const strip=document.querySelector(selector); if(!strip)return;
+    let dragging=false,startX=0,startScroll=0,moved=false;
+    strip.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'&&e.button!==0)return;dragging=true;moved=false;startX=e.clientX;startScroll=strip.scrollLeft;strip.classList.add('is-dragging');strip.setPointerCapture?.(e.pointerId);},{passive:true});
+    strip.addEventListener('pointermove',e=>{if(!dragging)return;const dx=e.clientX-startX;if(Math.abs(dx)>4)moved=true;strip.scrollLeft=startScroll-dx;},{passive:true});
+    const end=e=>{if(!dragging)return;dragging=false;strip.classList.remove('is-dragging');if(e.pointerId!==undefined)strip.releasePointerCapture?.(e.pointerId);};
+    strip.addEventListener('pointerup',end);strip.addEventListener('pointercancel',end);
+    strip.addEventListener('click',e=>{if(moved){e.preventDefault();e.stopPropagation();moved=false;}},true);
+  }
+  enable('.route-strip');enable('.review-strip');
+})();
+</script>
 </body>
 </html>
