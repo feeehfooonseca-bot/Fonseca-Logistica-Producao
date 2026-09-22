@@ -167,18 +167,31 @@ footer{padding:55px 0;border-top:1px solid var(--line)}.footer-inner{display:gri
 }
 
 
-/* V21 - Calculadora de coleta */
-.calc-section{padding:88px 0;background:linear-gradient(180deg,#080808 0%,#0c0c0d 100%);scroll-margin-top:0}
+/* V21 — Calculadora de coleta
+   Uma única regra de espaçamento/âncora para evitar conflitos de cascade. */
+.calc-section{
+  padding:0 0 24px;
+  background:linear-gradient(180deg,#080808 0%,#0c0c0d 100%);
+  scroll-margin-top:78px;
+}
+.calc-section-title{margin:0 0 18px;font-size:.78rem;letter-spacing:.13em;text-transform:uppercase;color:#8f8f95;font-weight:800}
+@media(max-width:700px){
+  .calc-section{padding:0 0 24px;scroll-margin-top:66px}
+  .calc-section .eyebrow{margin-bottom:10px}
+  .calc-section h2{margin-bottom:8px}
+  .calc-section .calc-intro{margin:0 0 14px}
+}
+
 .calc-shell{max-width:820px;margin:28px auto 0;padding:28px;border:1px solid #242427;border-radius:22px;background:#101011;box-shadow:0 24px 70px rgba(0,0,0,.28)}
 .calc-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.calc-field{display:flex;flex-direction:column;gap:8px}.calc-field.full{grid-column:1/-1}
 .calc-field label{font-size:.82rem;font-weight:700;letter-spacing:.04em;color:#d9d9dc}.calc-field input,.calc-field select,.calc-field textarea{width:100%;border:1px solid #303034;background:#0a0a0b;color:#f4f4f2;border-radius:12px;padding:14px 15px;font:inherit;outline:none}.calc-field input:focus,.calc-field select:focus,.calc-field textarea:focus{border-color:#C8102E;box-shadow:0 0 0 3px rgba(200,16,46,.12)}
 .when-switch{display:grid;grid-template-columns:1fr 1fr;gap:10px}.when-btn{border:1px solid #303034;background:#0a0a0b;color:#ddd;padding:13px;border-radius:12px;font-weight:700;cursor:pointer}.when-btn.active{border-color:#C8102E;background:rgba(200,16,46,.12);color:#fff}.schedule-fields{display:none;grid-template-columns:1fr 1fr;gap:16px}.schedule-fields.show{display:grid}.calc-action{margin-top:20px;width:100%;border:0;cursor:pointer}.calc-status{display:none;margin-top:18px;padding:14px;border-radius:12px;background:#171719;color:#c9c9ce;font-size:.92rem}.calc-status.show{display:block}.calc-result{display:none;margin-top:24px;padding:22px;border:1px solid #303034;border-radius:16px;background:#0a0a0b}.calc-result.show{display:block}.result-title{font-size:1.15rem;font-weight:800;margin:0 0 16px}.result-row{display:flex;justify-content:space-between;gap:18px;padding:10px 0;border-bottom:1px solid #202023}.result-row:last-of-type{border-bottom:0}.result-row span{color:#a8a8ae}.result-row strong{text-align:right}.result-price{font-size:1.35rem;color:#fff}.toll-alert{display:none;margin:14px 0;padding:12px 14px;border-radius:10px;background:rgba(200,16,46,.11);border:1px solid rgba(200,16,46,.35);font-weight:700}.toll-alert.show{display:block}.calc-note{margin:14px 0 0;color:#8f8f95;font-size:.78rem}.whatsapp-request{display:none;margin-top:18px;width:100%;text-align:center}.whatsapp-request.show{display:inline-block}.calc-test-note{margin-top:12px;color:#77777d;font-size:.72rem;text-align:center}
-@media(max-width:680px){.calc-section{padding:10px 0 24px}.calc-section .eyebrow{margin-bottom:10px}.calc-section h2{margin-bottom:8px}.calc-section .calc-intro{margin:0 0 14px}.calc-shell{padding:16px 20px;border-radius:18px}.calc-grid{grid-template-columns:1fr}.calc-field.full{grid-column:auto}.schedule-fields{grid-template-columns:1fr}.result-row{align-items:flex-start;flex-direction:column;gap:2px}.result-row strong{text-align:left}}
+@media(max-width:680px){.calc-section .eyebrow{margin-bottom:10px}.calc-section h2{margin-bottom:8px}.calc-section .calc-intro{margin:0 0 14px}.calc-shell{padding:16px 20px;border-radius:18px}.calc-grid{grid-template-columns:1fr}.calc-field.full{grid-column:auto}.schedule-fields{grid-template-columns:1fr}.result-row{align-items:flex-start;flex-direction:column;gap:2px}.result-row strong{text-align:left}}
 
 
 /* V21.2 — formulário mais arejado + Nota Fiscal */
-.calc-grid{gap:0!important}.calc-section{padding:24px 0;border-bottom:1px solid #202023}.calc-section:first-child{padding-top:0}.calc-section:last-child{border-bottom:0;padding-bottom:4px}.calc-section-title{margin:0 0 18px;font-size:.78rem;letter-spacing:.13em;text-transform:uppercase;color:#8f8f95;font-weight:800}.calc-section .calc-field+.calc-field{margin-top:18px}.invoice-switch{display:grid;grid-template-columns:1fr 1fr;gap:10px}.invoice-btn{border:1px solid #303034;background:#0a0a0b;color:#ddd;padding:13px;border-radius:12px;font-weight:700;cursor:pointer}.invoice-btn.active{border-color:#C8102E;background:rgba(200,16,46,.12);color:#fff}.result-invoice{display:none}.result-invoice.show{display:flex}
-@media(max-width:640px){.calc-section{padding:22px 0}.calc-shell{padding:24px 20px!important}.result-row{padding:14px 0!important}}
+.calc-grid{gap:0!important}.calc-section-title{margin:0 0 18px;font-size:.78rem;letter-spacing:.13em;text-transform:uppercase;color:#8f8f95;font-weight:800}.calc-section .calc-field+.calc-field{margin-top:18px}.invoice-switch{display:grid;grid-template-columns:1fr 1fr;gap:10px}.invoice-btn{border:1px solid #303034;background:#0a0a0b;color:#ddd;padding:13px;border-radius:12px;font-weight:700;cursor:pointer}.invoice-btn.active{border-color:#C8102E;background:rgba(200,16,46,.12);color:#fff}.result-invoice{display:none}.result-invoice.show{display:flex}
+@media(max-width:640px){.calc-shell{padding:24px 20px!important}.result-row{padding:14px 0!important}}
 
 /* V10 — Na Estrada / galeria documental premium */
 .routes-real{padding-bottom:104px}
@@ -766,13 +779,13 @@ main{margin:0!important;padding:0!important}
 .partnership-copy{max-width:680px!important;margin:30px 0 0!important;color:#9a9a9f!important;font-size:clamp(17px,2vw,21px)!important;line-height:1.55!important}
 .partnership-note{max-width:680px!important;margin:24px 0 0!important;padding-left:18px;border-left:2px solid #c8102e;color:#d7d7da!important;font-size:14px!important;line-height:1.55!important}
 .partnership-btn{display:inline-flex!important;align-items:center;justify-content:space-between;gap:42px;margin-top:34px!important;min-width:310px;text-align:left!important}.partnership-btn span{font-size:18px}
-.calc-section#calcular-rota{padding:108px 0 96px;background:#080808}
+
 #calcular-rota>.wrap>.eyebrow{margin-bottom:24px;letter-spacing:.26em;color:#d84b62}
 #calcular-rota>.wrap>h2{max-width:780px;font-size:clamp(42px,6vw,68px);line-height:.98;letter-spacing:-.045em;margin-bottom:22px}
 .calc-title-accent{color:#f2f2f2}
 .calc-intro{max-width:650px!important;font-size:18px!important;line-height:1.55!important;color:#929297!important}
 #calcular-rota .calc-shell{margin-top:42px;padding:34px;border-radius:2px;border:1px solid rgba(255,255,255,.11);background:linear-gradient(180deg,#0c0c0d,#090909);box-shadow:none}
-#calcular-rota .calc-section{background:transparent!important;padding:30px 0;border-bottom:1px solid rgba(255,255,255,.09)}
+
 #calcular-rota .calc-section-title{margin-bottom:22px;letter-spacing:.2em;color:#96969c;font-size:11px}
 #calcular-rota .calc-field label{font-size:14px;letter-spacing:.01em}
 #calcular-rota .calc-field input,#calcular-rota .calc-field select,#calcular-rota .calc-field textarea{min-height:56px;border-radius:2px;border-color:#29292d;background:#09090a;padding:16px 17px}
@@ -791,7 +804,7 @@ main{margin:0!important;padding:0!important}
 
 /* V21.12 TESTE — múltiplas entregas e limpeza rápida */
 .address-input-wrap{position:relative}.address-input-wrap input{padding-right:50px!important}.clear-address{position:absolute;right:10px;bottom:10px;width:36px;height:36px;border:0;background:transparent;color:#888;font-size:22px;line-height:36px;cursor:pointer}.clear-address:hover{color:#fff}.delivery-block{padding-top:4px}.delivery-block+.delivery-block{margin-top:22px;padding-top:24px;border-top:1px solid rgba(255,255,255,.08)}.delivery-block-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.delivery-block-title{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#aaa}.remove-delivery{border:0;background:transparent;color:#d84b62;font-size:12px;cursor:pointer}.add-delivery{width:100%;margin-top:18px;min-height:48px;border:1px dashed #3b3b40;background:#0a0a0b;color:#ddd;border-radius:2px;font-weight:700;cursor:pointer}.add-delivery:hover{border-color:#666}.delivery-results{display:grid;gap:10px;margin-top:16px}.delivery-result-row{display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-top:1px solid rgba(255,255,255,.08)}.delivery-result-row strong{color:#fff}.delivery-total-row{font-size:18px}.delivery-total-row strong{color:#fff}.oneway-note{font-size:11px;color:#777;margin-top:8px}
-@media(max-width:700px){.partnership-section{padding:86px 0 82px!important}.partnership-section .eyebrow{margin-bottom:22px!important}.partnership-section h2{font-size:44px!important}.partnership-copy{font-size:17px!important;margin-top:24px!important}.partnership-note{margin-top:20px!important}.partnership-btn{width:100%;min-width:0;margin-top:28px!important}.calc-section#calcular-rota{padding:82px 0 72px}.calc-intro{font-size:16px!important}#calcular-rota .calc-shell{margin-top:32px;padding:22px 18px!important}.footer-premium-v12{padding:68px 0 28px!important}.footer-v12-wrap{width:calc(100% - 40px)}.footer-v12-brand{padding-bottom:34px}.footer-v12-brand img{width:min(165px,44vw)!important}.footer-v12-grid{grid-template-columns:1fr;gap:32px;padding:34px 0}.footer-v12-legal{flex-direction:column;gap:8px}.footer-v12-bottom{align-items:flex-end}.footer-v12-bottom>span{max-width:180px;line-height:1.5}}
+@media(max-width:700px){.partnership-section{padding:86px 0 82px!important}.partnership-section .eyebrow{margin-bottom:22px!important}.partnership-section h2{font-size:44px!important}.partnership-copy{font-size:17px!important;margin-top:24px!important}.partnership-note{margin-top:20px!important}.partnership-btn{width:100%;min-width:0;margin-top:28px!important}.calc-intro{font-size:16px!important}#calcular-rota .calc-shell{margin-top:32px;padding:22px 18px!important}.footer-premium-v12{padding:68px 0 28px!important}.footer-v12-wrap{width:calc(100% - 40px)}.footer-v12-brand{padding-bottom:34px}.footer-v12-brand img{width:min(165px,44vw)!important}.footer-v12-grid{grid-template-columns:1fr;gap:32px;padding:34px 0}.footer-v12-legal{flex-direction:column;gap:8px}.footer-v12-bottom{align-items:flex-end}.footer-v12-bottom>span{max-width:180px;line-height:1.5}}
 </style>
 <style id="premium-v121-footer-refine">
 /* V12.1 — compact premium footer; visual-only refinement */
@@ -880,10 +893,10 @@ main{margin:0!important;padding:0!important}
 .calc-shell{box-shadow:0 26px 72px rgba(0,0,0,.22)!important}
 .calc-field input,.calc-field select,.calc-field textarea,.when-btn,.invoice-btn{transition:border-color .22s ease,background .22s ease,box-shadow .22s ease,color .22s ease}
 /* Âncoras não ficam escondidas pelo header fixo. */
-#top,#servicos,#empresas,#sobre,#rotas-reais,#avaliacoes,#parcerias,#calcular-rota,#contato{scroll-margin-top:78px}
+#top,#servicos,#empresas,#sobre,#rotas-reais,#avaliacoes,#parcerias,#contato{scroll-margin-top:78px}
 @media(max-width:700px){
   #servicos,.business-premium,.reviews,.partnership-section{scroll-margin-top:66px}
-  .about-fonseca,#rotas-reais,#calcular-rota,#contato{scroll-margin-top:66px}
+  .about-fonseca,#rotas-reais,#contato{scroll-margin-top:66px}
   .about-lead,.about-copy,.about-signature{max-width:100%}
   .calc-shell{box-shadow:none!important}
   .calc-field label{line-height:1.35}
@@ -1112,17 +1125,6 @@ main{margin:0!important;padding:0!important}
 </style>
 
 <style id="quote-ux-test">.quote-step-confirm[hidden]{display:none!important}.quote-step-quick{padding-bottom:4px}.quote-step-quick .calc-section-title{margin-bottom:20px}.quote-step-quick .calc-grid{gap:0!important}.quote-step-quick .calc-field{margin-bottom:18px}.quick-result{margin-top:24px}.quick-price{font-size:clamp(42px,9vw,68px);line-height:1;font-weight:900;letter-spacing:-2px;color:#fff;margin:4px 0 14px}.quick-distance{color:#aaa;font-size:14px;margin-bottom:18px}.quick-distance strong{color:#fff}.quick-delivery-summary,.shared-trip-summary{display:grid;gap:7px}.quick-delivery-line,.quick-shared-line{padding:10px 0;border-top:1px solid rgba(255,255,255,.08);font-size:13px;color:#b9b9bd}.quick-shared-line{color:#ddd}.quote-continue{margin-top:22px;width:100%;font-size:14px;min-height:54px}.quote-edit{display:block;margin:13px auto 0;border:0;background:none;color:#8f8f95;font:inherit;font-size:12px;font-weight:700;cursor:pointer}.quote-edit:hover{color:#fff}.quote-step-confirm{margin-top:4px}.quote-step-confirm .calc-section-title{margin-bottom:18px}.quote-step-confirm .calc-field+.calc-field{margin-top:18px}.request-summary{margin-top:28px;padding:20px;border:1px solid #303034;border-radius:16px;background:#0a0a0b}.request-summary .calc-section-title{margin-bottom:8px}.summary-line{display:flex;justify-content:space-between;gap:18px;padding:12px 0;border-top:1px solid rgba(255,255,255,.08);font-size:13px}.summary-line span{color:#8f8f95}.summary-line strong{text-align:right;color:#fff}.summary-line small{color:#999;font-weight:400}.quote-step-confirm .calc-action{margin-top:22px}.delivery-ref-field{margin-top:18px!important}@media(max-width:680px){.quick-price{font-size:48px}.summary-line{align-items:flex-start;flex-direction:column;gap:4px}.summary-line strong{text-align:left}.quote-continue{min-height:58px}}</style>
-<style id="calc-direct-open-fix">
-/* TESTE — ao abrir a calculadora, o conteúdo começa imediatamente abaixo do cabeçalho. */
-#calcular-rota{scroll-margin-top:0!important}
-@media(max-width:700px){
-  .calc-section#calcular-rota{padding-top:4px!important;padding-bottom:24px!important}
-  #calcular-rota>.wrap>.eyebrow{margin-top:0!important;margin-bottom:8px!important}
-  #calcular-rota>.wrap>h2{margin-top:0!important;margin-bottom:6px!important}
-  #calcular-rota .calc-intro{margin-top:0!important;margin-bottom:12px!important}
-  #calcular-rota .calc-shell{margin-top:12px!important}
-}
-</style>
 </head>
 <body id="top">
 <header class="topbar">
