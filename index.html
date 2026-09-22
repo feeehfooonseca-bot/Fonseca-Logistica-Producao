@@ -170,13 +170,13 @@ footer{padding:55px 0;border-top:1px solid var(--line)}.footer-inner{display:gri
 /* V21 — Calculadora de coleta
    Uma única regra de espaçamento/âncora para evitar conflitos de cascade. */
 .calc-section{
-  padding:32px 0 40px;
+  padding:32px 0 calc(40px + env(safe-area-inset-bottom, 0px));
   background:linear-gradient(180deg,#080808 0%,#0c0c0d 100%);
   scroll-margin-top:0;
 }
 .calc-section-title{margin:0 0 18px;font-size:.78rem;letter-spacing:.13em;text-transform:uppercase;color:#8f8f95;font-weight:800}
 @media(max-width:700px){
-  .calc-section{padding:24px 0 32px;scroll-margin-top:0}
+  .calc-section{padding:24px 0 calc(32px + env(safe-area-inset-bottom, 0px));scroll-margin-top:0}
   .calc-section .eyebrow{margin-bottom:10px}
   .calc-section h2{margin-bottom:8px}
   .calc-section .calc-intro{margin:0 0 14px}
