@@ -110,3 +110,40 @@ export async function requestOfficialQuote(pickup, deliveries, fetchImpl = fetch
 
   return quote;
 }
+
+
+export async function submitProtectedQuote(quote, details, fetchImpl = fetch) {
+  const protectedQuote = quote?.protectedQuote;
+  if (!protectedQuote?.proof || !protectedQuote?.snapshot) {
+    throw new Error("Não foi possível proteger este orçamento. Calcule novamente.");
+  }
+
+  let response;
+  try {
+    response = await fetchImpl(ROUTE_API + "/quote/submit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        proof: protectedQuote.proof,
+        snapshot: protectedQuote.snapshot,
+        details,
+      }),
+    });
+  } catch {
+    throw new Error("Não foi possível registrar a proteção do orçamento. Tente novamente.");
+  }
+
+  let result = {};
+  try { result = await response.json(); } catch {}
+
+  if (!response.ok || result.ok !== true || typeof result.code !== "string" ||
+      typeof result.verificationUrl !== "string" || typeof result.expiresAt !== "string") {
+    throw new Error(
+      typeof result.error === "string" && result.error
+        ? result.error
+        : "Não foi possível registrar a proteção do orçamento.",
+    );
+  }
+
+  return result;
+}

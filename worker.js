@@ -6,6 +6,7 @@ const GEOCODE_MIN_CITY_CONFIDENCE = 0.5;
 const GEOCODE_MIN_STREET_CONFIDENCE = 0.5;
 const QUOTE_PROOF_VERSION = 1;
 const QUOTE_TTL_SECONDS = 30 * 60;
+const QUOTE_RETENTION_SECONDS = 72 * 60 * 60;
 const CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 const LOW_PRECISION_GEOCODE_RESULT_TYPES = new Set([
   "unknown", "suburb", "district", "postcode", "city", "county", "state", "country",
@@ -22,6 +23,10 @@ const SPECIAL_REGIONS = [
 ];
 
 export default {
+  async scheduled(controller, env, ctx) {
+    ctx.waitUntil(purgeExpiredQuotes(env));
+  },
+
   async fetch(request, env) {
     const url = new URL(request.url);
     const corsHeaders = corsHeadersFor(request.headers.get("Origin"), env.ALLOWED_ORIGINS);
@@ -314,7 +319,23 @@ async function createProof(snapshot, secret, configuredTtl) {
   return { ...unsigned, signature: await hmac(unsigned, secret) };
 }
 
+async function purgeExpiredQuotes(env) {
+  if (!env.QUOTE_DB) return;
+  const cutoff = new Date(Date.now() - QUOTE_RETENTION_SECONDS * 1000).toISOString();
+  try {
+    await run(env.QUOTE_DB, "DELETE FROM protected_quotes WHERE created_at < ?", cutoff);
+  } catch {
+    console.error(JSON.stringify({ event: "quote_retention_error", type: "cleanup_failed" }));
+  }
+}
+
 async function submitQuote(request, env, corsHeaders) {
+  if (env.QUOTE_DB) {
+    try {
+      const cutoff = new Date(Date.now() - QUOTE_RETENTION_SECONDS * 1000).toISOString();
+      await run(env.QUOTE_DB, "DELETE FROM protected_quotes WHERE created_at < ?", cutoff);
+    } catch {}
+  }
   if (!env.QUOTE_SIGNING_SECRET) return json({ error: "Confirmação protegida indisponível." }, 503, corsHeaders);
   if (!env.QUOTE_DB) return json({ error: "Armazenamento de orçamento indisponível." }, 503, corsHeaders);
   let body;
@@ -499,6 +520,8 @@ function validAddress(value) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+const PAGES_PREVIEW_ORIGIN_RE = /^https:\/\/[a-z0-9-]+\.fonseca-logistica-producao\.pages\.dev$/;
+
 function corsHeadersFor(origin, configuredOrigins) {
   if (!origin) return {};
 
@@ -507,7 +530,9 @@ function corsHeadersFor(origin, configuredOrigins) {
     .map((value) => value.trim())
     .filter(isCanonicalWebOrigin);
 
-  if (!allowedOrigins.includes(origin)) return null;
+  if (!isCanonicalWebOrigin(origin)) return null;
+  if (!allowedOrigins.includes(origin) && !PAGES_PREVIEW_ORIGIN_RE.test(origin)) return null;
+
   return {
     "Access-Control-Allow-Origin": origin,
     Vary: "Origin",

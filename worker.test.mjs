@@ -190,6 +190,43 @@ test("origin permitido recebe CORS sem wildcard", async () => {
   assert.notEqual(response.headers.get("Access-Control-Allow-Origin"), "*");
 });
 
+test("preview do Cloudflare Pages recebe CORS sem wildcard", async (t) => {
+  for (const origin of [
+    "https://3ebe9444.fonseca-logistica-producao.pages.dev",
+    "https://preview-1.fonseca-logistica-producao.pages.dev",
+  ]) {
+    await t.test(origin, async () => {
+      const { response } = await requestQuote(
+        { pickup: "Coleta", delivery: "Local" },
+        { origin, env: { ALLOWED_ORIGINS: "https://fonsecalog.com.br" } },
+      );
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get("Access-Control-Allow-Origin"), origin);
+      assert.equal(response.headers.get("Vary"), "Origin");
+      assert.notEqual(response.headers.get("Access-Control-Allow-Origin"), "*");
+    });
+  }
+});
+
+test("domínio parecido com o preview do Pages continua bloqueado", async (t) => {
+  for (const origin of [
+    "https://evil.fonseca-logistica-producao.pages.dev.evil.example",
+    "https://fonseca-logistica-producao.pages.dev.evil.example",
+    "http://3ebe9444.fonseca-logistica-producao.pages.dev",
+  ]) {
+    await t.test(origin, async () => {
+      const { response, body, calls } = await requestQuote(
+        { pickup: "Coleta", delivery: "Local" },
+        { origin, env: { ALLOWED_ORIGINS: "https://fonsecalog.com.br" } },
+      );
+      assert.equal(response.status, 403);
+      assert.deepEqual(body, { error: "Origem não autorizada." });
+      assert.equal(response.headers.get("Access-Control-Allow-Origin"), null);
+      assert.equal(calls.length, 0);
+    });
+  }
+});
+
 test("origin não permitido ou parecido é rejeitado antes de chamadas externas", async (t) => {
   for (const origin of ["https://evil.example", "https://app.example.test.evil.example"]) {
     await t.test(origin, async () => {

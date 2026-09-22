@@ -42,9 +42,8 @@
     "slogan": "A extensão logística da sua empresa"
   }
   </script>
-<!-- TESTE PREMIUM V7 -->
-<style>
 
+<style>
 :root{
  --bg:#080808;--surface:#0d0d0e;--surface2:#121214;--line:#222225;
  --text:#f4f4f2;--muted:#99999f;--red:#C8102E;--max:1180px;
@@ -167,18 +166,31 @@ footer{padding:55px 0;border-top:1px solid var(--line)}.footer-inner{display:gri
 }
 
 
-/* V21 - Calculadora de coleta */
-.calc-section{padding:88px 0;background:linear-gradient(180deg,#080808 0%,#0c0c0d 100%)}
-.calc-shell{max-width:820px;margin:28px auto 0;padding:28px;border:1px solid #242427;border-radius:22px;background:#101011;box-shadow:0 24px 70px rgba(0,0,0,.28)}
+/* V21 — Calculadora de coleta
+   Uma única regra de espaçamento/âncora para evitar conflitos de cascade. */
+.calc-section{
+  padding:32px 0 calc(40px + env(safe-area-inset-bottom, 0px));
+  background:linear-gradient(180deg,#080808 0%,#0c0c0d 100%);
+  scroll-margin-top:66px;
+}
+.calc-section-title{margin:0 0 18px;font-size:.78rem;letter-spacing:.13em;text-transform:uppercase;color:#8f8f95;font-weight:800}
+@media(max-width:700px){
+  .calc-section{padding:24px 0 calc(32px + env(safe-area-inset-bottom, 0px));scroll-margin-top:66px}
+  .calc-section .eyebrow{margin-bottom:10px}
+  .calc-section h2{margin-bottom:8px}
+  .calc-section .calc-intro{margin:0 0 14px}
+}
+
+.calc-shell{max-width:820px}
 .calc-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.calc-field{display:flex;flex-direction:column;gap:8px}.calc-field.full{grid-column:1/-1}
 .calc-field label{font-size:.82rem;font-weight:700;letter-spacing:.04em;color:#d9d9dc}.calc-field input,.calc-field select,.calc-field textarea{width:100%;border:1px solid #303034;background:#0a0a0b;color:#f4f4f2;border-radius:12px;padding:14px 15px;font:inherit;outline:none}.calc-field input:focus,.calc-field select:focus,.calc-field textarea:focus{border-color:#C8102E;box-shadow:0 0 0 3px rgba(200,16,46,.12)}
-.when-switch{display:grid;grid-template-columns:1fr 1fr;gap:10px}.when-btn{border:1px solid #303034;background:#0a0a0b;color:#ddd;padding:13px;border-radius:12px;font-weight:700;cursor:pointer}.when-btn.active{border-color:#C8102E;background:rgba(200,16,46,.12);color:#fff}.schedule-fields{display:none;grid-template-columns:1fr 1fr;gap:16px}.schedule-fields.show{display:grid}.calc-action{margin-top:20px;width:100%;border:0;cursor:pointer}.calc-status{display:none;margin-top:18px;padding:14px;border-radius:12px;background:#171719;color:#c9c9ce;font-size:.92rem}.calc-status.show{display:block}.calc-result{display:none;margin-top:24px;padding:22px;border:1px solid #303034;border-radius:16px;background:#0a0a0b}.calc-result.show{display:block}.result-title{font-size:1.15rem;font-weight:800;margin:0 0 16px}.result-row{display:flex;justify-content:space-between;gap:18px;padding:10px 0;border-bottom:1px solid #202023}.result-row:last-of-type{border-bottom:0}.result-row span{color:#a8a8ae}.result-row strong{text-align:right}.result-price{font-size:1.35rem;color:#fff}.toll-alert{display:none;margin:14px 0;padding:12px 14px;border-radius:10px;background:rgba(200,16,46,.11);border:1px solid rgba(200,16,46,.35);font-weight:700}.toll-alert.show{display:block}.calc-note{margin:14px 0 0;color:#8f8f95;font-size:.78rem}.whatsapp-request{display:none;margin-top:18px;width:100%;text-align:center}.whatsapp-request.show{display:inline-block}.calc-test-note{margin-top:12px;color:#77777d;font-size:.72rem;text-align:center}
-@media(max-width:680px){.calc-section{padding:64px 0}.calc-shell{padding:20px;border-radius:18px}.calc-grid{grid-template-columns:1fr}.calc-field.full{grid-column:auto}.schedule-fields{grid-template-columns:1fr}.result-row{align-items:flex-start;flex-direction:column;gap:2px}.result-row strong{text-align:left}}
+.when-switch{display:grid;grid-template-columns:1fr 1fr;gap:10px}.when-btn{border:1px solid #303034;background:#0a0a0b;color:#ddd;padding:13px;border-radius:12px;font-weight:700;cursor:pointer}.when-btn.active{border-color:#C8102E;background:rgba(200,16,46,.12);color:#fff}.schedule-fields{display:none;grid-template-columns:1fr 1fr;gap:16px}.schedule-fields.show{display:grid}.calc-action{width:100%;border:0;cursor:pointer}.calc-status{display:none;margin-top:18px;padding:14px;border-radius:12px;background:#171719;color:#c9c9ce;font-size:.92rem}.calc-status.show{display:block}.calc-result{display:none;margin-top:24px;padding:22px;border:1px solid #303034;border-radius:16px;background:#0a0a0b}.calc-result.show{display:block}.result-title{font-size:1.15rem;font-weight:800;margin:0 0 16px}.result-row{display:flex;justify-content:space-between;gap:18px;padding:10px 0;border-bottom:1px solid #202023}.result-row:last-of-type{border-bottom:0}.result-row span{color:#a8a8ae}.result-row strong{text-align:right}.result-price{font-size:1.35rem;color:#fff}.toll-alert{display:none;margin:14px 0;padding:12px 14px;border-radius:10px;background:rgba(200,16,46,.11);border:1px solid rgba(200,16,46,.35);font-weight:700}.toll-alert.show{display:block}.calc-note{margin:14px 0 0;color:#8f8f95;font-size:.78rem}.whatsapp-request{display:none;margin-top:18px;width:100%;text-align:center}.whatsapp-request.show{display:inline-block}.calc-test-note{margin-top:12px;color:#77777d;font-size:.72rem;text-align:center}
+@media(max-width:680px){.calc-section .eyebrow{margin-bottom:8px}.calc-section h2{margin-bottom:6px}.calc-section .calc-intro{margin:0 0 10px}.calc-shell{margin-top:16px!important;padding:16px 16px!important;border-radius:18px}.calc-section-title{margin-bottom:12px!important}.calc-grid{grid-template-columns:1fr}.calc-field.full{grid-column:auto}.calc-field{gap:5px}.calc-field input,.calc-field select,.calc-field textarea{min-height:48px!important;padding:11px 12px!important}.calc-section .calc-field+.calc-field{margin-top:10px}.delivery-block+.delivery-block{margin-top:14px;padding-top:16px}.add-delivery{margin-top:12px;min-height:44px}.calc-action{margin-top:12px!important;min-height:52px!important}.schedule-fields{grid-template-columns:1fr}.result-row{align-items:flex-start;flex-direction:column;gap:2px}.result-row strong{text-align:left}}
 
 
 /* V21.2 — formulário mais arejado + Nota Fiscal */
-.calc-grid{gap:0!important}.calc-section{padding:24px 0;border-bottom:1px solid #202023}.calc-section:first-child{padding-top:0}.calc-section:last-child{border-bottom:0;padding-bottom:4px}.calc-section-title{margin:0 0 18px;font-size:.78rem;letter-spacing:.13em;text-transform:uppercase;color:#8f8f95;font-weight:800}.calc-section .calc-field+.calc-field{margin-top:18px}.invoice-switch{display:grid;grid-template-columns:1fr 1fr;gap:10px}.invoice-btn{border:1px solid #303034;background:#0a0a0b;color:#ddd;padding:13px;border-radius:12px;font-weight:700;cursor:pointer}.invoice-btn.active{border-color:#C8102E;background:rgba(200,16,46,.12);color:#fff}.result-invoice{display:none}.result-invoice.show{display:flex}
-@media(max-width:640px){.calc-section{padding:22px 0}.calc-shell{padding:24px 20px!important}.result-row{padding:14px 0!important}}
+.calc-grid{gap:0!important}.calc-section .calc-field+.calc-field{margin-top:18px}.invoice-switch{display:grid;grid-template-columns:1fr 1fr;gap:10px}.invoice-btn{border:1px solid #303034;background:#0a0a0b;color:#ddd;padding:13px;border-radius:12px;font-weight:700;cursor:pointer}.invoice-btn.active{border-color:#C8102E;background:rgba(200,16,46,.12);color:#fff}.result-invoice{display:none}.result-invoice.show{display:flex}
+@media(max-width:640px){.result-row{padding:12px 0!important}}
 
 /* V10 — Na Estrada / galeria documental premium */
 .routes-real{padding-bottom:104px}
@@ -212,8 +224,7 @@ footer{padding:55px 0;border-top:1px solid var(--line)}.footer-inner{display:gri
 @media(max-width:700px){
  .reviews-head{grid-template-columns:1fr;gap:32px}.reviews h2{font-size:clamp(38px,11vw,54px);line-height:.96}.review-score{justify-self:stretch;min-width:0;padding-bottom:20px}.review-score strong{font-size:46px}.review-strip{gap:10px;padding-top:34px;padding-left:16px;padding-right:16px;scroll-padding-left:16px}.review-card{flex-basis:calc(100vw - 52px);min-height:320px;padding:27px 24px}.review-card .stars{margin-bottom:34px}.review-quote{font-size:22px}.review-gallery-ui{width:calc(100% - 32px);grid-template-columns:auto 1fr;gap:14px}.review-gallery-hint{grid-column:1/-1;text-align:right;font-size:9px}.reviews-footer{width:calc(100% - 32px);margin-top:30px;align-items:flex-start;flex-direction:column}.reviews-footer p{font-size:12px}.reviews-link{font-size:13px}
 }
-</style>
-<style>
+
 /* V8 branding: approved red/white logos on the site's own black background */
 .brand-official{
   width:min(300px,61vw)!important;
@@ -249,8 +260,7 @@ footer{padding:55px 0;border-top:1px solid var(--line)}.footer-inner{display:gri
   .footer-brand-premium{width:calc(100% - 32px);margin-bottom:34px}
   .footer-brand-premium img{width:min(310px,82vw)}
 }
-</style>
-<style>
+
 /* V9 — logo hierarchy requested */
 .brand-official{
   width:min(390px,68vw)!important;
@@ -275,8 +285,7 @@ footer{padding:55px 0;border-top:1px solid var(--line)}.footer-inner{display:gri
     width:min(185px,48vw)!important;
   }
 }
-</style>
-<style>
+
 /* V10 — footer centered + cinematic disappearing header */
 footer{ text-align:center!important; }
 .footer-brand-premium{
@@ -315,22 +324,19 @@ footer{ text-align:center!important; }
   transform:translateY(-100%)!important;
   pointer-events:none!important;
 }
-</style>
-<style>
+
 /* V11 — cleaner header: branding only, no quote button */
 .topbar .mini-cta{display:none!important;}
 @media(max-width:700px){
   .topbar{justify-content:flex-start!important;}
   .brand-official{width:min(330px,82vw)!important;height:58px!important;}
 }
-</style>
-<style>
+
 .footer-company-info{width:min(560px,calc(100% - 32px));margin:20px auto 0;text-align:center;color:#aaa}
 .footer-company-info p{margin:7px 0;font-size:13px;line-height:1.55}
 .footer-company-info a{display:inline-block;margin:5px 0;color:#fff;text-decoration:none;font-size:13px}
 .footer-company-info .footer-copy{margin-top:18px;padding-top:16px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;color:#666}
-</style>
-<style>
+
 footer .footer-brand-premium,
 footer .footer-company-info{display:block}
 footer .footer-inner,footer .footer-brand,footer .footer-meta,footer .footer-clean-meta{display:none!important}
@@ -339,16 +345,14 @@ footer .footer-inner,footer .footer-brand,footer .footer-meta,footer .footer-cle
 .footer-company-info p{margin:7px 0;font-size:13px;line-height:1.55}
 .footer-company-info a{display:inline-block;margin:6px 0;color:#fff;text-decoration:none;font-size:13px}
 .footer-company-info .footer-copy{margin-top:18px;padding-top:16px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;color:#666}
-</style>
-<style>
+
 .footer-company-info .footer-cnpj{
   margin-top:10px;
   font-size:12px;
   color:#85858b;
   letter-spacing:.2px;
 }
-</style>
-<style>
+
 .footer-contact-row{
   display:flex;
   align-items:center;
@@ -384,8 +388,7 @@ footer .footer-inner,footer .footer-brand,footer .footer-meta,footer .footer-cle
 .result-metrics{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}.result-metric{border:1px solid #28282c;border-radius:14px;padding:16px;background:#111113}.result-metric span{display:block;color:#8f8f95;font-size:.76rem;margin-bottom:6px}.result-metric strong{font-size:1.1rem}.result-metric.price strong{font-size:1.35rem}
 .result-invoice-card{display:none;margin-top:12px;padding:14px 16px;border-radius:12px;border:1px solid rgba(200,16,46,.35);background:rgba(200,16,46,.08);font-weight:700}.result-invoice-card.show{display:block}
 @media(max-width:640px){.calc-result{padding:22px 18px!important}.result-metrics{grid-template-columns:1fr}.result-group{padding:16px 0}}
-</style>
-<style>
+
 /* TESTE VISUAL LOGO — baseline V21.11 preservado */
 .topbar{justify-content:flex-start!important;padding-top:10px!important;padding-bottom:10px!important;}
 .brand-official{width:min(285px,52vw)!important;height:50px!important;}
@@ -393,8 +396,7 @@ footer .footer-inner,footer .footer-brand,footer .footer-meta,footer .footer-cle
   .topbar{justify-content:flex-start!important;padding:9px 16px!important;}
   .brand-official{width:min(270px,76vw)!important;height:50px!important;}
 }
-</style>
-<style>
+
 /* TESTE PREMIUM 2 — refinamento exclusivo de header/menu/hero */
 @media(max-width:700px){
   .topbar{min-height:66px!important;height:66px!important;padding:7px 16px!important;background:linear-gradient(180deg,rgba(4,4,5,.62),rgba(4,4,5,.04))!important}
@@ -410,8 +412,7 @@ footer .footer-inner,footer .footer-brand,footer .footer-meta,footer .footer-cle
   body.premium-menu-open{overflow:hidden!important}
   .hero-photo .hero-content{padding-top:104px!important;padding-bottom:48px!important}
 }
-</style>
-<style>
+
 /* TESTE PREMIUM 3 — integração real header/hero + menu mobile corrigido */
 .hero-photo{margin-top:0!important}
 .hero-photo .hero-media{z-index:0!important}
@@ -452,8 +453,7 @@ footer .footer-inner,footer .footer-brand,footer .footer-meta,footer .footer-cle
   .hero-photo .hero-content{position:relative!important;z-index:2!important;padding-top:92px!important;padding-bottom:48px!important}
   .premium-nav{padding-top:94px!important;background:rgba(5,5,6,.84)!important;backdrop-filter:blur(28px) saturate(110%)!important;-webkit-backdrop-filter:blur(28px) saturate(110%)!important}
 }
-</style>
-<style>
+
 /* TESTE PREMIUM 4 — correção estrutural definitiva do topo. Baseline V21.11 preservado. */
 .topbar{
   position:fixed!important;top:0!important;right:0!important;bottom:auto!important;left:0!important;
@@ -497,10 +497,8 @@ main{margin:0!important;padding:0!important}
   .hero-photo .hero-media img{object-position:center 45%!important;filter:saturate(.76) contrast(1.06) brightness(.60)!important}
   .hero-photo .hero-shade{background:linear-gradient(0deg,#080808 0%,rgba(8,8,8,.95) 28%,rgba(8,8,8,.58) 58%,rgba(8,8,8,.12) 100%),linear-gradient(90deg,rgba(8,8,8,.42),rgba(8,8,8,.03))!important}
   .hero-photo .hero-content{padding-top:92px!important;padding-bottom:48px!important}
-  .premium-nav{position:fixed!important;inset:0!important;z-index:999!important;padding:94px 24px 30px!important;background:rgba(5,5,6,.88)!important;backdrop-filter:blur(28px) saturate(110%)!important;-webkit-backdrop-filter:blur(28px) saturate(110%)!important}
-}
-</style>
-<style>
+  .premium-nav{position:fixed!important;inset:0!important;z-index:999!important;padding:94px 24px 30px!important;background:rgba(5,5,6,.88)!important;backdrop-filter:blur(28px) saturate(110%)!important;-webkit-backdrop-filter:blur(28px) saturate(110%)!important}}
+
 /* TESTE PREMIUM 5 — acabamento de alto nível do header + hero. V21.11 preservada. */
 .topbar{
   background:linear-gradient(180deg,rgba(5,5,6,.50) 0%,rgba(5,5,6,.16) 58%,rgba(5,5,6,0) 100%)!important;
@@ -536,9 +534,9 @@ main{margin:0!important;padding:0!important}
  .premium-nav{background:rgba(5,5,6,.84)!important;backdrop-filter:blur(30px) saturate(120%)!important;-webkit-backdrop-filter:blur(30px) saturate(120%)!important}
 }
 @media(prefers-reduced-motion:reduce){.hero-content>*{animation:none!important}.premium-nav,.premium-nav a,.premium-menu-lines i,.topbar{transition:none!important}}
-</style>
-\n<style>\n/* TESTE PREMIUM 6 — header neutralizado + Soluções editorial. Baseline V21.11 preservada. */\n.topbar.premium-scrolled{\n background:rgba(7,7,8,.88)!important;\n border-bottom-color:rgba(255,255,255,.055)!important;\n backdrop-filter:blur(24px) saturate(108%)!important;-webkit-backdrop-filter:blur(24px) saturate(108%)!important;\n box-shadow:0 14px 42px rgba(0,0,0,.22)!important;\n}\n.topbar.premium-scrolled:after{background:linear-gradient(90deg,transparent,rgba(255,255,255,.10) 44%,rgba(200,16,46,.11) 64%,transparent)!important;opacity:.72!important}\n#servicos{position:relative;overflow:hidden;padding-top:112px;padding-bottom:112px;background:linear-gradient(180deg,#080809 0%,#0a0a0b 52%,#080809 100%)}\n#servicos:before{content:"";position:absolute;width:520px;height:520px;right:-290px;top:-190px;border-radius:50%;background:radial-gradient(circle,rgba(200,16,46,.075),transparent 68%);filter:blur(12px);pointer-events:none}\n#servicos .wrap{position:relative;z-index:1}\n#servicos>.wrap>.eyebrow{margin-bottom:16px}\n#servicos>.wrap>h2{max-width:760px;margin-bottom:0;font-size:clamp(36px,5vw,64px);line-height:.98;letter-spacing:-.045em}\n#servicos .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:0;margin-top:64px;background:transparent;border:0;border-top:1px solid rgba(255,255,255,.11)}\n#servicos .card{position:relative;min-height:285px;padding:30px 34px 34px 0;background:transparent!important;border:0;border-bottom:1px solid rgba(255,255,255,.11);overflow:hidden;transition:background .38s ease,padding .38s cubic-bezier(.2,.7,.2,1)}\n#servicos .card:nth-child(odd){padding-right:48px;border-right:1px solid rgba(255,255,255,.11)}\n#servicos .card:nth-child(even){padding-left:48px}\n#servicos .card:before{content:"";position:absolute;left:0;top:-1px;width:0;height:2px;background:var(--red);transition:width .45s cubic-bezier(.2,.8,.2,1)}\n#servicos .card:nth-child(even):before{left:48px}\n#servicos .card>span{display:flex;align-items:center;gap:12px;color:rgba(255,255,255,.38);font-size:10px;font-weight:800;letter-spacing:.18em}\n#servicos .card>span:after{content:"";width:34px;height:1px;background:rgba(200,16,46,.72)}\n#servicos .card h3{max-width:310px;margin:78px 0 13px;font-size:clamp(23px,2.3vw,31px);line-height:1.04;letter-spacing:-.035em}\n#servicos .card p{max-width:390px;margin:0;color:#929298;font-size:14px;line-height:1.7}\n@media(hover:hover){#servicos .card:hover{background:rgba(255,255,255,.018)!important}#servicos .card:hover:before{width:72px}}\n@media(max-width:700px){\n #servicos{padding-top:86px;padding-bottom:82px}\n #servicos>.wrap>h2{max-width:330px;font-size:42px}\n #servicos .grid{grid-template-columns:1fr;margin-top:48px}\n #servicos .card,#servicos .card:nth-child(odd),#servicos .card:nth-child(even){min-height:0;padding:25px 4px 28px 0;border-right:0;border-bottom:1px solid rgba(255,255,255,.105)}\n #servicos .card:nth-child(even):before{left:0}\n #servicos .card h3{margin:37px 0 10px;font-size:25px}\n #servicos .card p{max-width:335px;font-size:13.5px;line-height:1.65}\n}\n</style>\n
-<style>
+
+\n/* TESTE PREMIUM 6 — header neutralizado + Soluções editorial. Baseline V21.11 preservada. */\n.topbar.premium-scrolled{\n background:rgba(7,7,8,.88)!important;\n border-bottom-color:rgba(255,255,255,.055)!important;\n backdrop-filter:blur(24px) saturate(108%)!important;-webkit-backdrop-filter:blur(24px) saturate(108%)!important;\n box-shadow:0 14px 42px rgba(0,0,0,.22)!important;\n}\n.topbar.premium-scrolled:after{background:linear-gradient(90deg,transparent,rgba(255,255,255,.10) 44%,rgba(200,16,46,.11) 64%,transparent)!important;opacity:.72!important}\n#servicos{position:relative;overflow:hidden;padding-top:112px;padding-bottom:112px;background:linear-gradient(180deg,#080809 0%,#0a0a0b 52%,#080809 100%)}\n#servicos:before{content:"";position:absolute;width:520px;height:520px;right:-290px;top:-190px;border-radius:50%;background:radial-gradient(circle,rgba(200,16,46,.075),transparent 68%);filter:blur(12px);pointer-events:none}\n#servicos .wrap{position:relative;z-index:1}\n#servicos>.wrap>.eyebrow{margin-bottom:16px}\n#servicos>.wrap>h2{max-width:760px;margin-bottom:0;font-size:clamp(36px,5vw,64px);line-height:.98;letter-spacing:-.045em}\n#servicos .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:0;margin-top:64px;background:transparent;border:0;border-top:1px solid rgba(255,255,255,.11)}\n#servicos .card{position:relative;min-height:285px;padding:30px 34px 34px 0;background:transparent!important;border:0;border-bottom:1px solid rgba(255,255,255,.11);overflow:hidden;transition:background .38s ease,padding .38s cubic-bezier(.2,.7,.2,1)}\n#servicos .card:nth-child(odd){padding-right:48px;border-right:1px solid rgba(255,255,255,.11)}\n#servicos .card:nth-child(even){padding-left:48px}\n#servicos .card:before{content:"";position:absolute;left:0;top:-1px;width:0;height:2px;background:var(--red);transition:width .45s cubic-bezier(.2,.8,.2,1)}\n#servicos .card:nth-child(even):before{left:48px}\n#servicos .card>span{display:flex;align-items:center;gap:12px;color:rgba(255,255,255,.38);font-size:10px;font-weight:800;letter-spacing:.18em}\n#servicos .card>span:after{content:"";width:34px;height:1px;background:rgba(200,16,46,.72)}\n#servicos .card h3{max-width:310px;margin:78px 0 13px;font-size:clamp(23px,2.3vw,31px);line-height:1.04;letter-spacing:-.035em}\n#servicos .card p{max-width:390px;margin:0;color:#929298;font-size:14px;line-height:1.7}\n@media(hover:hover){#servicos .card:hover{background:rgba(255,255,255,.018)!important}#servicos .card:hover:before{width:72px}}\n@media(max-width:700px){\n #servicos{padding-top:86px;padding-bottom:82px}\n #servicos>.wrap>h2{max-width:330px;font-size:42px}\n #servicos .grid{grid-template-columns:1fr;margin-top:48px}\n #servicos .card,#servicos .card:nth-child(odd),#servicos .card:nth-child(even){min-height:0;padding:25px 4px 28px 0;border-right:0;border-bottom:1px solid rgba(255,255,255,.105)}\n #servicos .card:nth-child(even):before{left:0}\n #servicos .card h3{margin:37px 0 10px;font-size:25px}\n #servicos .card p{max-width:335px;font-size:13.5px;line-height:1.65}\n}\n
+
 /* TESTE PREMIUM 7 — trust bar integrada + atributos refinados. Baseline V21.11 preservada. */
 .hero-photo .hero-content{padding-bottom:118px!important}
 .premium-trust{
@@ -577,8 +575,7 @@ main{margin:0!important;padding:0!important}
  .premium-stats b{font-size:16px!important}
  .premium-stats small{font-size:11px!important;line-height:1.5}
 }
-</style>
-<style>
+
 /* V8 — Para Empresas: composição editorial assimétrica */
 .business-premium{position:relative;overflow:hidden;background:linear-gradient(180deg,#09090a 0%,#060607 100%)}
 .business-premium:before{content:"";position:absolute;left:0;right:0;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.12),transparent)}
@@ -595,8 +592,7 @@ main{margin:0!important;padding:0!important}
 .business-note{margin:0;padding:18px 0 20px;border-top:1px solid rgba(255,255,255,.075);color:#696970;font-size:10px;line-height:1.55;letter-spacing:.055em;text-transform:uppercase}
 @media(max-width:900px){.business-layout{grid-template-columns:1fr;gap:52px}.business-copy h2 br{display:none}.business-spec{max-width:620px}}
 @media(max-width:640px){.business-premium{padding-top:82px!important;padding-bottom:84px!important}.business-layout{gap:46px}.business-copy h2{margin-bottom:20px}.business-copy .copy{line-height:1.68}.business-cta{margin-top:24px}.business-spec-head{padding:16px 0 18px}.business-spec-row{grid-template-columns:34px 1fr;gap:14px;padding:20px 0}.business-spec-row strong{font-size:15px}.business-note{font-size:9px}}
-</style>
-<style>
+
 /* V9 — fechamento Para Empresas + transição editorial para Na Estrada */
 .business-premium{padding-bottom:clamp(64px,7vw,92px)!important}
 .business-note{padding:15px 0 16px}
@@ -650,8 +646,7 @@ main{margin:0!important;padding:0!important}
   .route-gallery-ui{margin-top:0}
   .route-gallery-hint{margin-top:-7px}
 }
-</style>
-<style id="v102-sobre-fonseca">
+
 /* V10.2 — Sobre a Fonseca / editorial documental */
 .about-fonseca{position:relative;overflow:hidden;padding:112px 0 118px;background:linear-gradient(180deg,#09090a 0%,#050506 100%);border-top:1px solid rgba(255,255,255,.055)}
 .about-fonseca:before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(70% 62% at 78% 48%,rgba(255,255,255,.045),transparent 62%)}
@@ -695,8 +690,7 @@ main{margin:0!important;padding:0!important}
  .about-stat b{font-size:27px}
  .about-kicker{margin-bottom:20px}
 }
-</style>
-<style id="v103-sobre-mobile-editorial">
+
 /* V10.3 — hierarquia mobile: mensagem → retrato → história → marcos */
 @media(min-width:901px){
  .about-grid{grid-template-columns:minmax(0,1.05fr) minmax(360px,.78fr);align-items:center}
@@ -730,8 +724,7 @@ main{margin:0!important;padding:0!important}
  .about-stat{padding:17px 0}
  .about-signature{margin-top:23px;line-height:1.65}
 }
-</style>
-<style id="v104-sobre-text-refinement">
+
 /* V10.4 — refinamento tipográfico do Sobre no mobile; conteúdo e estrutura preservados */
 @media(max-width:620px){
  .about-lead{max-width:34em;margin-bottom:18px;font-size:13.25px;line-height:1.58;letter-spacing:-.006em;color:#c3c3c7}
@@ -742,8 +735,7 @@ main{margin:0!important;padding:0!important}
  .about-stat{padding:18px 0}
  .about-signature{margin-top:24px}
 }
-</style>
-<style>
+
 /* V11.1 — refinamento final da seção Reputação */
 #avaliacoes{scroll-margin-top:118px}
 .review-card{min-height:270px}
@@ -757,8 +749,7 @@ main{margin:0!important;padding:0!important}
   .reviews-footer{gap:18px}
   .reviews-link{width:100%;justify-content:space-between;padding:15px 16px;font-size:11px;letter-spacing:.7px;text-transform:uppercase}
 }
-</style>
-<style>
+
 /* V12 — fechamento comercial premium: parcerias, calculadora e rodapé. Lógica V21.11 preservada. */
 .partnership-section{padding:112px 0 106px!important;text-align:left!important;background:linear-gradient(180deg,#090909 0%,#0b0b0c 100%)!important;border-top:1px solid rgba(255,255,255,.08)!important;border-bottom:1px solid rgba(255,255,255,.06)}
 .partnership-wrap{max-width:920px!important;margin:0 auto}
@@ -767,13 +758,13 @@ main{margin:0!important;padding:0!important}
 .partnership-copy{max-width:680px!important;margin:30px 0 0!important;color:#9a9a9f!important;font-size:clamp(17px,2vw,21px)!important;line-height:1.55!important}
 .partnership-note{max-width:680px!important;margin:24px 0 0!important;padding-left:18px;border-left:2px solid #c8102e;color:#d7d7da!important;font-size:14px!important;line-height:1.55!important}
 .partnership-btn{display:inline-flex!important;align-items:center;justify-content:space-between;gap:42px;margin-top:34px!important;min-width:310px;text-align:left!important}.partnership-btn span{font-size:18px}
-.calc-section#calcular-rota{padding:108px 0 96px;background:#080808}
+
 #calcular-rota>.wrap>.eyebrow{margin-bottom:24px;letter-spacing:.26em;color:#d84b62}
 #calcular-rota>.wrap>h2{max-width:780px;font-size:clamp(42px,6vw,68px);line-height:.98;letter-spacing:-.045em;margin-bottom:22px}
 .calc-title-accent{color:#f2f2f2}
 .calc-intro{max-width:650px!important;font-size:18px!important;line-height:1.55!important;color:#929297!important}
 #calcular-rota .calc-shell{margin-top:42px;padding:34px;border-radius:2px;border:1px solid rgba(255,255,255,.11);background:linear-gradient(180deg,#0c0c0d,#090909);box-shadow:none}
-#calcular-rota .calc-section{background:transparent!important;padding:30px 0;border-bottom:1px solid rgba(255,255,255,.09)}
+
 #calcular-rota .calc-section-title{margin-bottom:22px;letter-spacing:.2em;color:#96969c;font-size:11px}
 #calcular-rota .calc-field label{font-size:14px;letter-spacing:.01em}
 #calcular-rota .calc-field input,#calcular-rota .calc-field select,#calcular-rota .calc-field textarea{min-height:56px;border-radius:2px;border-color:#29292d;background:#09090a;padding:16px 17px}
@@ -792,9 +783,8 @@ main{margin:0!important;padding:0!important}
 
 /* V21.12 TESTE — múltiplas entregas e limpeza rápida */
 .address-input-wrap{position:relative}.address-input-wrap input{padding-right:50px!important}.clear-address{position:absolute;right:10px;bottom:10px;width:36px;height:36px;border:0;background:transparent;color:#888;font-size:22px;line-height:36px;cursor:pointer}.clear-address:hover{color:#fff}.delivery-block{padding-top:4px}.delivery-block+.delivery-block{margin-top:22px;padding-top:24px;border-top:1px solid rgba(255,255,255,.08)}.delivery-block-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.delivery-block-title{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#aaa}.remove-delivery{border:0;background:transparent;color:#d84b62;font-size:12px;cursor:pointer}.add-delivery{width:100%;margin-top:18px;min-height:48px;border:1px dashed #3b3b40;background:#0a0a0b;color:#ddd;border-radius:2px;font-weight:700;cursor:pointer}.add-delivery:hover{border-color:#666}.delivery-results{display:grid;gap:10px;margin-top:16px}.delivery-result-row{display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-top:1px solid rgba(255,255,255,.08)}.delivery-result-row strong{color:#fff}.delivery-total-row{font-size:18px}.delivery-total-row strong{color:#fff}.oneway-note{font-size:11px;color:#777;margin-top:8px}
-@media(max-width:700px){.partnership-section{padding:86px 0 82px!important}.partnership-section .eyebrow{margin-bottom:22px!important}.partnership-section h2{font-size:44px!important}.partnership-copy{font-size:17px!important;margin-top:24px!important}.partnership-note{margin-top:20px!important}.partnership-btn{width:100%;min-width:0;margin-top:28px!important}.calc-section#calcular-rota{padding:82px 0 72px}.calc-intro{font-size:16px!important}#calcular-rota .calc-shell{margin-top:32px;padding:22px 18px!important}.footer-premium-v12{padding:68px 0 28px!important}.footer-v12-wrap{width:calc(100% - 40px)}.footer-v12-brand{padding-bottom:34px}.footer-v12-brand img{width:min(165px,44vw)!important}.footer-v12-grid{grid-template-columns:1fr;gap:32px;padding:34px 0}.footer-v12-legal{flex-direction:column;gap:8px}.footer-v12-bottom{align-items:flex-end}.footer-v12-bottom>span{max-width:180px;line-height:1.5}}
-</style>
-<style id="premium-v121-footer-refine">
+@media(max-width:700px){.partnership-section{padding:86px 0 82px!important}.partnership-section .eyebrow{margin-bottom:22px!important}.partnership-section h2{font-size:44px!important}.partnership-copy{font-size:17px!important;margin-top:24px!important}.partnership-note{margin-top:20px!important}.partnership-btn{width:100%;min-width:0;margin-top:28px!important}.calc-intro{font-size:16px!important}#calcular-rota .calc-shell{margin-top:32px;padding:22px 18px!important}.footer-premium-v12{padding:68px 0 28px!important}.footer-v12-wrap{width:calc(100% - 40px)}.footer-v12-brand{padding-bottom:34px}.footer-v12-brand img{width:min(165px,44vw)!important}.footer-v12-grid{grid-template-columns:1fr;gap:32px;padding:34px 0}.footer-v12-legal{flex-direction:column;gap:8px}.footer-v12-bottom{align-items:flex-end}.footer-v12-bottom>span{max-width:180px;line-height:1.5}}
+
 /* V12.1 — compact premium footer; visual-only refinement */
 .footer-premium-v12{padding:64px 0 26px!important}
 .footer-v12-brand{padding-bottom:28px!important}
@@ -820,8 +810,7 @@ main{margin:0!important;padding:0!important}
  .footer-v12-bottom{padding-top:18px!important;align-items:center!important}
  .footer-v12-bottom>span{max-width:150px!important;line-height:1.4!important}
 }
-</style>
-<style id="v122-menu-premium">
+
 /* V12.2 — menu mobile editorial premium. Demais seções e lógica V21.11 preservadas. */
 @media(max-width:760px){
  .premium-nav-v122{padding:82px 28px 24px!important;background:rgba(5,5,6,.96)!important;backdrop-filter:blur(24px) saturate(108%)!important;-webkit-backdrop-filter:blur(24px) saturate(108%)!important;justify-content:space-between!important;overflow-y:auto!important}
@@ -849,9 +838,7 @@ main{margin:0!important;padding:0!important}
  .premium-nav-v122 .menu-v122-actions>a{padding-top:10px!important;padding-bottom:10px!important}
  .premium-nav-v122 .menu-v122-meta{margin-top:12px!important;padding-top:10px!important}
 }
-</style>
-<!-- V12.4: pente-fino ortográfico; depoimentos Google preservados literalmente; lógica V21.11 intacta. -->
-<style id="v125-final-polish">
+
 /* V12.5 — pente-fino visual final. Somente acabamento; lógica V21.11 preservada. */
 .topbar.premium-scrolled{
   background:rgba(7,7,8,.93)!important;
@@ -881,10 +868,10 @@ main{margin:0!important;padding:0!important}
 .calc-shell{box-shadow:0 26px 72px rgba(0,0,0,.22)!important}
 .calc-field input,.calc-field select,.calc-field textarea,.when-btn,.invoice-btn{transition:border-color .22s ease,background .22s ease,box-shadow .22s ease,color .22s ease}
 /* Âncoras não ficam escondidas pelo header fixo. */
-#top,#servicos,#empresas,#sobre,#rotas-reais,#avaliacoes,#parcerias,#calcular-rota,#contato{scroll-margin-top:78px}
+#top,#servicos,#empresas,#sobre,#rotas-reais,#avaliacoes,#parcerias,#contato{scroll-margin-top:78px}
 @media(max-width:700px){
   #servicos,.business-premium,.reviews,.partnership-section{scroll-margin-top:66px}
-  .about-fonseca,#rotas-reais,#calcular-rota,#contato{scroll-margin-top:66px}
+  .about-fonseca,#rotas-reais,#contato{scroll-margin-top:66px}
   .about-lead,.about-copy,.about-signature{max-width:100%}
   .calc-shell{box-shadow:none!important}
   .calc-field label{line-height:1.35}
@@ -892,9 +879,7 @@ main{margin:0!important;padding:0!important}
   .footer-v12-bottom{align-items:flex-end}
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto!important}}
-</style>
-<!-- V12.5: final polish visual; conteúdo aprovado, avaliações e lógica V21.11 preservados. -->
-<style id="v126-menu-opacity-fix">
+
 /* V12.6 — correção isolada do menu mobile: fundo opaco para impedir vazamento visual do conteúdo. */
 @media(max-width:760px){
   .premium-nav-v122,
@@ -904,9 +889,7 @@ main{margin:0!important;padding:0!important}
     -webkit-backdrop-filter:none!important;
   }
 }
-</style>
-<!-- V12.6: menu mobile opaco; desenho, conteúdo e lógica V21.11 preservados. -->
-<style id="v127-menu-close-sync">
+
 /* V12.7 — mantém o fundo opaco até o último frame do fechamento do menu. */
 @media(max-width:760px){
   .premium-nav.menu-closing{
@@ -924,9 +907,7 @@ main{margin:0!important;padding:0!important}
     transition-delay:0s!important;
   }
 }
-</style>
-<!-- V12.7: sincronização do fechamento do menu; demais áreas e lógica V21.11 preservadas. -->
-<style id="v128-menu-viewport-isolation">
+
 /* V12.8 — isolamento estrutural do menu mobile. O painel permanece opaco e visível até o fim do fechamento. */
 @media(max-width:760px){
   .premium-nav.open,
@@ -946,9 +927,7 @@ main{margin:0!important;padding:0!important}
   .premium-nav.open{pointer-events:auto!important}
   .premium-nav.menu-closing{pointer-events:none!important}
 }
-</style>
-<!-- V12.8: menu isolado em viewport opaca; conteúdo e lógica V21.11 preservados. -->
-<style id="v131-mobile-about-fix">
+
 /* V1.3 — ajuste fino mobile da seção Sobre */
 @media (max-width:620px){
   .about-story{min-width:0;overflow:hidden}
@@ -958,20 +937,14 @@ main{margin:0!important;padding:0!important}
 @media (max-width:380px){
   .about-title{font-size:clamp(32px,9.4vw,38px)}
 }
-</style>
 
-
-
-<style id="v151-alma-fonseca">
 /* V21.12 V1.6 — alma da empresa; fotografia original preservada */
 .about-photo img{object-position:50% 50%;filter:none;transform:none}
 .about-photo:before{background:linear-gradient(90deg,rgba(5,5,6,.72) 0%,rgba(5,5,6,.18) 28%,transparent 52%),linear-gradient(0deg,rgba(0,0,0,.62) 0%,transparent 34%)}
 .about-purpose{max-width:690px;margin:0 0 22px;color:#d5d5d8;font-size:17px;line-height:1.72}
 .about-purpose strong{color:#fff}
 @media(max-width:900px){.about-photo img{object-position:50% 50%;filter:none;transform:none}.about-photo:before{background:linear-gradient(0deg,#070708 0%,rgba(7,7,8,.25) 28%,transparent 56%)}}
-</style>
 
-<style id="v161-about-mobile-refinement">
 @media(max-width:900px){
  .about-fonseca{padding:76px 0 86px}
  .about-story{display:flex;flex-direction:column}
@@ -996,10 +969,7 @@ main{margin:0!important;padding:0!important}
  .about-photo{height:82vw;min-height:292px}
  .about-title{font-size:35px}
 }
-</style>
 
-
-<style id="v163-header-mobile-fix">
 @media(max-width:900px){
   header, .header, .site-header, .topbar, nav{
     isolation:isolate;
@@ -1010,11 +980,7 @@ main{margin:0!important;padding:0!important}
     -webkit-backdrop-filter:blur(12px);
   }
 }
-</style>
 
-
-
-<style id="v171-final-visual-polish">
 /* V1.7.1 — consolidação visual pré-freeze */
 .topbar{
   transition:background .28s ease,background-color .28s ease,
@@ -1075,10 +1041,7 @@ main{margin:0!important;padding:0!important}
 @media(prefers-reduced-motion:reduce){
   .topbar,.about-photo img{transition:none !important}
 }
-</style>
 
-
-<style id="v172-micro-polish">
 /* Último micro-refino visual: ritmo, leitura e transições. */
 @media(max-width:900px){
   .about-photo{
@@ -1111,13 +1074,89 @@ main{margin:0!important;padding:0!important}
   .about-lead{font-size:13.2px}
   .about-copy{font-size:12.7px}
 }
-</style>
 
+.quote-step-confirm[hidden]{display:none!important}.quote-step-quick{padding-bottom:4px}.quote-step-quick .calc-section-title{margin-bottom:20px}.quote-step-quick .calc-grid{gap:0!important}.quote-step-quick .calc-field{margin-bottom:18px}.quick-result{margin-top:24px}.quick-price{font-size:clamp(42px,9vw,68px);line-height:1;font-weight:900;letter-spacing:-2px;color:#fff;margin:4px 0 14px}.quick-distance{color:#aaa;font-size:14px;margin-bottom:18px}.quick-distance strong{color:#fff}.quick-delivery-summary,.shared-trip-summary{display:grid;gap:7px}.quick-delivery-line,.quick-shared-line{padding:10px 0;border-top:1px solid rgba(255,255,255,.08);font-size:13px;color:#b9b9bd}.quick-shared-line{color:#ddd}.quote-continue{margin-top:22px;width:100%;font-size:14px;min-height:54px}.quote-edit{display:block;margin:13px auto 0;border:0;background:none;color:#8f8f95;font:inherit;font-size:12px;font-weight:700;cursor:pointer}.quote-edit:hover{color:#fff}.quote-step-confirm{margin-top:4px}.quote-step-confirm .calc-section-title{margin-bottom:18px}.quote-step-confirm .calc-field+.calc-field{margin-top:18px}.request-summary{margin-top:28px;padding:20px;border:1px solid #303034;border-radius:16px;background:#0a0a0b}.request-summary .calc-section-title{margin-bottom:8px}.summary-line{display:flex;justify-content:space-between;gap:18px;padding:12px 0;border-top:1px solid rgba(255,255,255,.08);font-size:13px}.summary-line span{color:#8f8f95}.summary-line strong{text-align:right;color:#fff}.summary-line small{color:#999;font-weight:400}.quote-step-confirm .calc-action{margin-top:22px}.delivery-ref-field{margin-top:18px!important}@media(max-width:680px){.quick-price{font-size:48px}.summary-line{align-items:flex-start;flex-direction:column;gap:4px}.summary-line strong{text-align:left}.quote-continue{min-height:58px}}
+
+/* V22 — correções de usabilidade desktop: menu e galerias */
+@media(min-width:761px){
+  .premium-nav-v122{
+    position:fixed!important;
+    top:82px!important;
+    right:clamp(28px,4vw,64px)!important;
+    width:min(720px,calc(100vw - 56px))!important;
+    max-height:calc(100dvh - 110px)!important;
+    overflow:auto!important;
+    z-index:999!important;
+    display:grid!important;
+    grid-template-columns:minmax(0,1.15fr) minmax(250px,.85fr)!important;
+    column-gap:42px!important;
+    align-content:start!important;
+    padding:34px!important;
+    background:#050506!important;
+    border:1px solid rgba(255,255,255,.09)!important;
+    border-radius:4px!important;
+    box-shadow:0 24px 70px rgba(0,0,0,.45)!important;
+  }
+  .premium-nav-v122 .menu-v122-main{min-width:0!important}
+  .premium-nav-v122 .menu-v122-label{margin:0 0 18px!important;color:#c8102e!important;font-size:10px!important;font-weight:800!important;letter-spacing:3.2px!important}
+  .premium-nav-v122 .menu-v122-main>a{display:grid!important;grid-template-columns:34px minmax(0,1fr)!important;align-items:center!important;gap:12px!important;padding:13px 0!important;border-bottom:1px solid rgba(255,255,255,.075)!important;text-decoration:none!important}
+  .premium-nav-v122 .menu-v122-main>a span{font-size:10px!important;font-weight:800!important;letter-spacing:1.5px!important;color:rgba(255,255,255,.28)!important}
+  .premium-nav-v122 .menu-v122-main>a b{font-size:20px!important;line-height:1.15!important;color:#f3f3f3!important;font-weight:650!important}
+  .premium-nav-v122 .menu-v122-actions{display:grid!important;align-content:start!important;gap:10px!important;margin:0!important}
+  .premium-nav-v122 .menu-v122-actions>a{position:relative!important;display:block!important;padding:16px 42px 16px 16px!important;border:1px solid rgba(255,255,255,.11)!important;text-decoration:none!important}
+  .premium-nav-v122 .menu-v122-actions small{display:block!important;margin-bottom:5px!important;color:rgba(255,255,255,.38)!important;font-size:8px!important;font-weight:800!important;letter-spacing:2px!important}
+  .premium-nav-v122 .menu-v122-actions strong{font-size:15px!important;color:#fff!important;font-weight:750!important}
+  .premium-nav-v122 .menu-v122-actions i{position:absolute!important;right:16px!important;top:50%!important;transform:translateY(-50%)!important;font-style:normal!important;color:#c8102e!important;font-size:17px!important}
+  .premium-nav-v122 .menu-v122-meta{grid-column:1/-1!important;display:flex!important;justify-content:space-between!important;gap:14px!important;margin-top:22px!important;padding-top:16px!important;border-top:1px solid rgba(255,255,255,.07)!important;color:rgba(255,255,255,.50)!important;font-size:10px!important;letter-spacing:.6px!important}
+  .premium-nav-v122 .menu-v122-meta a{padding:0!important;border:0!important;font-size:10px!important;font-weight:700!important;color:rgba(255,255,255,.55)!important;text-decoration:none!important}
+}
+@media(min-width:761px) and (max-height:700px){
+  .premium-nav-v122{top:70px!important;padding:24px!important;grid-template-columns:1fr 1fr!important;column-gap:28px!important;max-height:calc(100dvh - 88px)!important}
+  .premium-nav-v122 .menu-v122-main>a{padding:9px 0!important}
+  .premium-nav-v122 .menu-v122-main>a b{font-size:17px!important}
+  .premium-nav-v122 .menu-v122-actions>a{padding:12px 38px 12px 14px!important}
+}
+@media(min-width:761px){
+  .route-strip,.review-strip{cursor:grab;user-select:none;touch-action:pan-y}
+  .route-strip.is-dragging,.review-strip.is-dragging{cursor:grabbing;scroll-snap-type:none}
+  .route-strip img,.review-strip *{user-select:none}
+}
+/* V22 — reduzir somente o vazio visual entre o header e o enquadramento inicial do hero */
+@media(min-width:761px){
+  .hero-photo{min-height:calc(100svh - 12px)!important}
+}
+</style>
+<!-- GA4 — Fonseca Logística (teste) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-SNGEXJE47J"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-SNGEXJE47J');
+</script>
+<!-- Meta Pixel Code -->
+<script>
+!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window, document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '1599431728396575');
+fbq('track', 'PageView');
+</script>
+<noscript><img height="1" width="1" style="display:none"
+src="https://www.facebook.com/tr?id=1599431728396575&ev=PageView&noscript=1"
+/>
+</noscript>
+<!-- End Meta Pixel Code -->
 </head>
 <body id="top">
 <header class="topbar">
 <a aria-label="Fonseca Logística" class="brand brand-official" href="#top"><img alt="Fonseca Logística" decoding="async" height="362" src="assets/images/image-01-9df38372.png" width="1500"/></a>
-<a class="mini-cta" href="https://wa.me/554792030653?text=Olá%2C%20vim%20pelo%20site%20da%20Fonseca%20Logística%20e%20gostaria%20de%20solicitar%20um%20orçamento." rel="noopener" target="_blank">Orçamento</a>
+<a class="mini-cta" href="#calcular-rota">Calcular Frete</a>
 <button aria-expanded="false" aria-label="Abrir menu" class="premium-menu" type="button"><span aria-hidden="true" class="premium-menu-lines"><i></i><i></i></span></button>
 </header>
 <nav aria-label="Navegação principal" class="premium-nav premium-nav-v122">
@@ -1181,7 +1220,7 @@ main{margin:0!important;padding:0!important}
 <div class="wrap business-layout">
 <div class="business-copy">
 <p class="eyebrow">PARA EMPRESAS</p>
-<h2>A extensão logística<br/>da sua empresa.</h2><!-- Revisão textual V12.4: “logística da” validado -->
+<h2>A extensão logística<br/>da sua empresa.</h2>
 <p class="copy">Sua operação continua focada no que importa enquanto cuidamos das coletas, entregas e rotas que mantêm o negócio em movimento.</p>
 <a class="text-link business-cta" href="https://wa.me/554792030653?text=Olá%2C%20vim%20pelo%20site%20da%20Fonseca%20Logística%20e%20gostaria%20de%20solicitar%20um%20orçamento." rel="noopener" target="_blank"><span>Falar sobre uma rota</span><b aria-hidden="true">↗</b></a>
 </div>
@@ -1272,67 +1311,19 @@ main{margin:0!important;padding:0!important}
 </section>
 </main>
 <section class="calc-section" id="calcular-rota">
-<div class="wrap">
-<p class="eyebrow">SOLICITE SUA COLETA</p>
-<h2>Precisa de uma entrega?<br/><span class="calc-title-accent">Calcule sua rota.</span></h2>
-<p class="copy calc-intro">Informe os dados da coleta e da entrega. Você confere a estimativa antes de enviar a solicitação.</p>
-<div class="calc-shell">
-<div class="calc-grid">
-<div class="calc-section">
-<p class="calc-section-title">Dados da solicitação</p>
-<div class="calc-field full"><label for="dcName">Seu nome</label><input autocomplete="name" id="dcName" placeholder="Ex.: João Silva"/></div>
-<div class="calc-field full"><label>Quando deseja a coleta?</label><div class="when-switch"><button class="when-btn active" data-when="now" type="button">Agora</button><button class="when-btn" data-when="schedule" type="button">Agendar</button></div></div>
-<div class="calc-field full"><div class="schedule-fields" id="scheduleFields"><div class="calc-field"><label for="dcDate">Data</label><input id="dcDate" type="date"/></div><div class="calc-field"><label for="dcTime">Horário</label><input id="dcTime" type="time"/></div></div></div>
-</div>
-<div class="calc-section">
-<p class="calc-section-title">Coleta</p>
-<div class="calc-field full address-input-wrap"><label for="dcPickup">Endereço da coleta</label><input autocomplete="street-address" id="dcPickup" placeholder="Rua, número, bairro, cidade"/><button aria-label="Limpar endereço da coleta" class="clear-address" data-clear="dcPickup" type="button">×</button></div>
-<div class="calc-field full"><label for="dcPickupRef">Complemento ou referência <span style="font-weight:400;color:#777">(opcional)</span></label><input id="dcPickupRef" placeholder="Ex.: fundos, sala 2, próximo ao mercado"/></div>
-</div>
-<div class="calc-section">
-<p class="calc-section-title">Entrega</p>
-<div id="deliveryFields">
-<div class="delivery-block" data-delivery-index="1">
-<div class="delivery-block-head"><span class="delivery-block-title">Entrega 1</span></div>
-<div class="calc-field full address-input-wrap"><label for="dcDelivery">Endereço da entrega</label><input autocomplete="street-address" class="delivery-address" id="dcDelivery" placeholder="Rua, número, bairro, cidade"/><button aria-label="Limpar endereço da entrega" class="clear-address" data-clear="dcDelivery" type="button">×</button></div>
-<div class="calc-field full"><label for="dcDeliveryRef">Complemento ou referência <span style="font-weight:400;color:#777">(opcional)</span></label><input class="delivery-ref" id="dcDeliveryRef" placeholder="Ex.: recepção, portaria, empresa X"/></div>
-</div>
-</div>
-<button class="add-delivery" id="addDelivery" type="button">+ Adicionar outra entrega</button>
-</div>
-<div class="calc-section">
-<p class="calc-section-title">Serviço</p>
-<div class="calc-field full"><label for="dcItem">O que será transportado?</label><input id="dcItem" placeholder="Ex.: documentos, pacote, peça"/></div>
-<div class="calc-field full"><label>Precisa de Nota Fiscal?</label><div class="invoice-switch"><button class="invoice-btn" data-invoice="yes" type="button">Sim</button><button class="invoice-btn" data-invoice="no" type="button">Não</button></div></div>
-</div>
-</div>
-<button class="btn primary calc-action" id="dcCalculate" type="button">Calcular estimativa</button>
-<div class="calc-status" id="dcStatus" role="status"></div>
-<div class="calc-result" id="dcResult">
-<p class="result-title">Confira sua solicitação</p>
-<p class="result-subtitle">Revise os dados antes de solicitar a coleta pelo WhatsApp.</p>
-<div class="result-group"><span class="result-group-label">Solicitação</span><div class="result-main" id="rName"></div><span class="result-secondary" id="rWhen"></span></div>
-<div class="result-group"><span class="result-group-label">Coleta</span><div class="result-main" id="rPickup"></div><span class="result-secondary" id="rPickupRef"></span></div>
-<div class="result-group"><span class="result-group-label">Entrega(s)</span><div class="delivery-results" id="rDeliveries"></div></div>
-<div class="result-group"><span class="result-group-label">Transporte</span><div class="result-main" id="rItem"></div><div class="result-invoice-card" id="rInvoiceRow">🧾 Precisa de Nota Fiscal</div></div>
-<div class="result-metrics"><div class="result-metric"><span>Distância total dos circuitos</span><strong id="rDistance"></strong></div><div class="result-metric price"><span>Valor total estimado</span><strong id="rPrice"></strong></div></div>
-<div id="routeDiagnostic" style="display:none;margin-top:14px;padding:14px 16px;border:1px dashed #444;border-radius:14px;background:#0b0b0d;color:#aaa;font-size:13px;line-height:1.7">
-<strong style="display:block;color:#fff;margin-bottom:6px;letter-spacing:.08em">DIAGNÓSTICO DE ROTA</strong>
-<div id="diagShort"></div>
-<div id="diagBalanced"></div>
-<div id="diagUsed"></div>
-<div id="diagMunicipality"></div>
-<div id="diagMode"></div>
-</div>
-<div class="toll-alert" id="rToll">⚠️ Esta rota possui pedágio. O valor do pedágio será confirmado no atendimento.</div>
-<p class="calc-note">Estimativa sujeita à confirmação de disponibilidade e a condições específicas da operação, como espera, volume especial ou pedágio.</p>
-<a class="btn primary whatsapp-request" id="dcWhatsapp" rel="noopener" target="_blank">Solicitar coleta pelo WhatsApp</a>
-</div>
-<div class="calc-test-note">Calculadora em fase de teste • V21.12 V1.6 • Orçamento oficial pelo servidor</div>
-</div>
-</div>
-</section>
-<footer class="footer-premium-v12" id="contato">
+<div class="wrap"><p class="eyebrow">ORÇAMENTO RÁPIDO</p><h2>CALCULE SUA ENTREGA</h2><p class="copy calc-intro">Informe a coleta e a entrega para saber o valor.</p>
+<div class="calc-shell" id="quoteApp">
+<div class="quote-step quote-step-quick" id="quoteStepQuick"><p class="calc-section-title">1 · ORÇAMENTO RÁPIDO</p>
+<div class="calc-grid"><div class="calc-field full address-input-wrap"><label for="dcPickup">Endereço da coleta</label><input autocomplete="street-address" id="dcPickup" placeholder="Rua, número, bairro, cidade"/><button aria-label="Limpar endereço da coleta" class="clear-address" data-clear="dcPickup" type="button">×</button></div></div>
+<div id="deliveryFields"><div class="delivery-block" data-delivery-index="1"><div class="delivery-block-head"><span class="delivery-block-title">Entrega 1</span></div><div class="calc-field full address-input-wrap"><label for="dcDelivery">Endereço da entrega</label><input autocomplete="street-address" class="delivery-address" id="dcDelivery" placeholder="Rua, número, bairro, cidade"/><button aria-label="Limpar endereço da entrega" class="clear-address" data-clear="dcDelivery" type="button">×</button></div></div></div>
+<button class="add-delivery" id="addDelivery" type="button">+ Adicionar outra entrega</button><button class="btn primary calc-action" id="dcCalculate" type="button">CALCULAR VALOR</button><div class="calc-status" id="dcStatus" role="status"></div></div>
+<div class="calc-result quick-result" id="dcResult"><p class="result-title">SUA ENTREGA</p><div class="quick-price" id="rPrice">R$ 0,00</div><div class="quick-distance">Distância do percurso: <strong id="rDistance"></strong></div><div class="quick-delivery-summary" id="rDeliveries"></div><div class="shared-trip-summary" id="rSharedTrips"></div><button class="btn primary quote-continue" id="requestQuoteBtn" type="button">SOLICITAR ESTA ENTREGA</button><button class="quote-edit" id="editAddressesBtn" type="button">Alterar endereços</button><p class="calc-note">Estimativa oficial calculada pelo servidor.</p></div>
+<div class="quote-step quote-step-confirm" id="quoteStepConfirm" hidden><p class="calc-section-title">2 · DADOS DA SOLICITAÇÃO</p>
+<div class="calc-grid"><div class="calc-field full"><label for="dcName">Seu nome</label><input autocomplete="name" id="dcName" placeholder="Ex.: João Silva"/></div><div class="calc-field full"><label>Quando deseja a coleta?</label><div class="when-switch"><button class="when-btn active" data-when="now" type="button">AGORA</button><button class="when-btn" data-when="schedule" type="button">AGENDAR</button></div></div><div class="calc-field full"><div class="schedule-fields" id="scheduleFields"><div class="calc-field"><label for="dcDate">Data</label><input id="dcDate" type="date"/></div><div class="calc-field"><label for="dcTime">Horário</label><input id="dcTime" type="time"/></div></div></div>
+<div class="calc-field full"><label for="dcPickupRef">Complemento da coleta <span style="font-weight:400;color:#777">(opcional)</span></label><input id="dcPickupRef" placeholder="Ex.: fundos, sala 2, portaria"/></div><div class="calc-field full" id="deliveryRefsFields"></div><div class="calc-field full"><label for="dcItem">O que será transportado?</label><input id="dcItem" placeholder="Ex.: documentos, pacote, peça"/></div><div class="calc-field full"><label>Precisa de Nota Fiscal?</label><div class="invoice-switch"><button class="invoice-btn" data-invoice="yes" type="button">SIM</button><button class="invoice-btn" data-invoice="no" type="button">NÃO</button></div></div></div>
+<div class="request-summary" id="requestSummary"><p class="calc-section-title">RESUMO DA SOLICITAÇÃO</p><div class="summary-line"><span>Coleta</span><strong id="summaryPickup"></strong></div><div class="summary-line" id="summaryPickupRefRow"><span>Complemento</span><strong id="summaryPickupRef"></strong></div><div id="summaryDeliveries"></div><div class="summary-line"><span>Valor</span><strong id="summaryPrice"></strong></div><div class="summary-line"><span>Horário</span><strong id="summaryWhen"></strong></div></div>
+<button class="btn primary calc-action" id="dcConfirm" type="button">CONFIRMAR PELO WHATSAPP</button><button class="quote-edit" id="backToQuoteBtn" type="button">Voltar para o orçamento</button><a class="whatsapp-request" id="dcWhatsapp" rel="noopener" target="_blank" hidden></a><div class="calc-status" id="dcConfirmStatus" role="status"></div></div>
+<div class="calc-test-note">Calculadora em fase de teste • Orçamento oficial pelo servidor</div></div></div></section><footer class="footer-premium-v12" id="contato">
 <div class="footer-v12-wrap">
 <div class="footer-v12-brand"><img alt="Fonseca Logística" decoding="async" height="626" loading="lazy" src="assets/images/image-18-7c18469d.png" width="1047"/><p>A extensão logística da sua empresa.</p></div>
 <div class="footer-v12-grid">
@@ -1377,50 +1368,65 @@ main{margin:0!important;padding:0!important}
 })();
 </script>
 <script type="module">
-import { MAX_DELIVERIES, requestOfficialQuote } from "./frontend-quote.mjs";
-
+import { MAX_DELIVERIES, requestOfficialQuote, submitProtectedQuote } from "./frontend-quote.mjs";
 (()=>{
- // V21.12 V1.6: frontend exibe exclusivamente o orçamento oficial retornado pelo Worker.
- const WA='554792030653';
- const $=id=>document.getElementById(id);
- let whenMode='now', invoiceMode=null, deliveryCount=1;
- const buttons=[...document.querySelectorAll('.when-btn')];
- buttons.forEach(b=>b.addEventListener('click',()=>{whenMode=b.dataset.when;buttons.forEach(x=>x.classList.toggle('active',x===b));$('scheduleFields').classList.toggle('show',whenMode==='schedule');}));
- const invoiceButtons=[...document.querySelectorAll('.invoice-btn')];
- invoiceButtons.forEach(b=>b.addEventListener('click',()=>{invoiceMode=b.dataset.invoice;invoiceButtons.forEach(x=>x.classList.toggle('active',x===b));}));
- const today=new Date(); $('dcDate').min=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');
- function status(msg,err=false){const el=$('dcStatus');el.textContent=msg;el.classList.add('show');el.style.border=err?'1px solid rgba(200,16,46,.45)':'1px solid #242427';}
- function bindClearButtons(root=document){root.querySelectorAll('.clear-address').forEach(btn=>{if(btn.dataset.bound)return;btn.dataset.bound='1';btn.addEventListener('click',()=>{const input=$(btn.dataset.clear);if(input){input.value='';input.focus();}$('dcResult').classList.remove('show');});});}
- bindClearButtons();
- function updateAddDeliveryState(){const atLimit=$('deliveryFields').querySelectorAll('.delivery-block').length>=MAX_DELIVERIES;$('addDelivery').disabled=atLimit;$('addDelivery').textContent=atLimit?`Limite de ${MAX_DELIVERIES} entregas atingido`:'+ Adicionar outra entrega';}
- function renumberDeliveries(){[...$('deliveryFields').querySelectorAll('.delivery-block')].forEach((b,i)=>{b.dataset.deliveryIndex=String(i+1);b.querySelector('.delivery-block-title').textContent=`Entrega ${i+1}`;const rm=b.querySelector('.remove-delivery');if(rm)rm.textContent=`Remover entrega ${i+1}`;});updateAddDeliveryState();}
- $('addDelivery').addEventListener('click',()=>{if($('deliveryFields').querySelectorAll('.delivery-block').length>=MAX_DELIVERIES){status(`Cada orçamento aceita no máximo ${MAX_DELIVERIES} entregas.`,true);return;}deliveryCount++;const block=document.createElement('div');block.className='delivery-block';block.dataset.deliveryIndex=String(deliveryCount);const aid=`dcDelivery${deliveryCount}`,rid=`dcDeliveryRef${deliveryCount}`;block.innerHTML=`<div class="delivery-block-head"><span class="delivery-block-title">Entrega ${deliveryCount}</span><button type="button" class="remove-delivery">Remover</button></div><div class="calc-field full address-input-wrap"><label for="${aid}">Endereço da entrega</label><input id="${aid}" class="delivery-address" autocomplete="street-address" placeholder="Rua, número, bairro, cidade"><button type="button" class="clear-address" data-clear="${aid}" aria-label="Limpar endereço da entrega">×</button></div><div class="calc-field full"><label for="${rid}">Complemento ou referência <span style="font-weight:400;color:#777">(opcional)</span></label><input id="${rid}" class="delivery-ref" placeholder="Ex.: recepção, portaria, empresa X"></div>`;block.querySelector('.remove-delivery').addEventListener('click',()=>{block.remove();renumberDeliveries();$('dcResult').classList.remove('show');});$('deliveryFields').appendChild(block);bindClearButtons(block);updateAddDeliveryState();block.querySelector('.delivery-address').focus();});
- updateAddDeliveryState();
- function fmtBRL(v){return Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
- function fmtWhen(){if(whenMode==='now')return'Agora';const d=$('dcDate').value,t=$('dcTime').value;if(!d||!t)throw new Error('Informe a data e o horário da coleta.');const[y,m,day]=d.split('-');return`${day}/${m}/${y} às ${t}`}
- function deliveryInputs(){return [...$('deliveryFields').querySelectorAll('.delivery-block')].map((b,i)=>({index:i+1,address:b.querySelector('.delivery-address').value.trim(),ref:b.querySelector('.delivery-ref').value.trim()}));}
- $('dcCalculate').addEventListener('click',async()=>{
-   $('dcResult').classList.remove('show');$('dcWhatsapp').classList.remove('show');const calcBtn=$('dcCalculate');
-   try{
-     const name=$('dcName').value.trim(),pickup=$('dcPickup').value.trim(),item=$('dcItem').value.trim(),deliveries=deliveryInputs();
-     if(!name||!pickup||!item||deliveries.some(x=>!x.address))throw new Error('Preencha nome, coleta, todas as entregas e o que será transportado.');
-     if(!invoiceMode)throw new Error('Informe se precisa de Nota Fiscal.');
-     const when=fmtWhen(),pref=$('dcPickupRef').value.trim();status(`Calculando ${deliveries.length} entrega${deliveries.length>1?'s':''}…`);calcBtn.disabled=true;calcBtn.textContent='Calculando rota…';
-     const quote=await requestOfficialQuote(pickup,deliveries);
-     const sharedTrips=Array.isArray(quote.sharedTrips)?quote.sharedTrips:[];
-     const results=deliveries.map((d,i)=>{const q=quote.deliveries[i];return{...d,...q,price:q.price===null?null:Number(q.price),km:q.distanceKm===null?null:Number(q.distanceKm),oneWayKm:q.oneWayKm===null?null:Number(q.oneWayKm)};});
-     if(results.some(x=>(x.price!==null&&!Number.isFinite(x.price))||(x.km!==null&&!Number.isFinite(x.km))))throw new Error('O servidor retornou dados inválidos. Tente novamente.');
-     const total=Number(quote.totalPrice),totalKm=results.reduce((a,x)=>a+(x.km===null?0:x.km),0)+sharedTrips.reduce((a,x)=>a+Number(x.distanceKm),0);
-     $('rName').textContent=name;$('rWhen').textContent=whenMode==='now'?'Coleta para agora':`Agendada para ${when}`;$('rPickup').textContent=pickup;$('rPickupRef').textContent=pref||'';$('rPickupRef').style.display=pref?'block':'none';$('rItem').textContent=item;$('rInvoiceRow').classList.toggle('show',invoiceMode==='yes');
-     const rd=$('rDeliveries');rd.innerHTML='';results.forEach(x=>{const row=document.createElement('div');row.className='delivery-result-row';const left=document.createElement('span');left.textContent=`Entrega ${x.index} — ${x.address}`;const right=document.createElement('strong');right.textContent=x.price===null?'Incluída na viagem compartilhada':fmtBRL(x.price);row.append(left,right);rd.append(row);});
-     sharedTrips.forEach(trip=>{const row=document.createElement('div');row.className='delivery-result-row';const left=document.createElement('span');left.textContent=`Viagem compartilhada — entregas ${trip.deliveryIndexes.map(i=>i+1).join(', ')}`;const right=document.createElement('strong');right.textContent=fmtBRL(trip.price);row.append(left,right);rd.append(row);});
-     if(results.length>1){const row=document.createElement('div');row.className='delivery-result-row delivery-total-row';row.innerHTML='<span>Total</span>';const strong=document.createElement('strong');strong.textContent=fmtBRL(total);row.append(strong);rd.append(row);}
-     $('rDistance').textContent=`${totalKm.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} km`;$('rPrice').textContent=fmtBRL(total);$('rToll').classList.remove('show');
-     const diag=$('routeDiagnostic');if(diag)diag.style.display='none';
-     const lines=[`Olá! Me chamo ${name} e gostaria de solicitar uma coleta ${whenMode==='now'?'para agora':`para ${when}`}.`,'','📦 *COLETA*',`${pickup}${pref?` — ${pref}`:''}`];results.forEach(x=>{lines.push('',`📍 *ENTREGA ${x.index}*`,`${x.address}${x.ref?` — ${x.ref}`:''}`,x.price===null?'Valor: incluído na viagem compartilhada':`Valor estimado: ${fmtBRL(x.price)}`);});sharedTrips.forEach(trip=>{lines.push('','🛣️ *VIAGEM COMPARTILHADA*',`Entregas ${trip.deliveryIndexes.map(i=>i+1).join(', ')} • ${Number(trip.distanceKm).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} km`,`Valor da viagem: ${fmtBRL(trip.price)}`);});lines.push('','🛵 *TRANSPORTE*',item);if(invoiceMode==='yes')lines.push('','🧾 *NOTA FISCAL*','Preciso de Nota Fiscal');lines.push('','💰 *VALOR TOTAL ESTIMADO*',fmtBRL(total),'','Gostaria de confirmar a disponibilidade para esta coleta.');
-     $('dcWhatsapp').href=`https://wa.me/${WA}?text=${encodeURIComponent(lines.join('\n'))}`;$('dcWhatsapp').classList.add('show');$('dcResult').classList.add('show');status('Estimativa oficial calculada. Confira os dados abaixo antes de solicitar.');$('dcResult').scrollIntoView({behavior:'smooth',block:'start'});
-   }catch(e){status(e.message||'Não foi possível calcular. Tente novamente.',true)}finally{calcBtn.disabled=false;calcBtn.textContent='Calcular estimativa';}
- });
+const WA='554792030653',$=id=>document.getElementById(id);if(!$('quoteApp'))return;
+let whenMode='now',invoiceMode=null,officialQuote=null,calculatedRouteKey='',origin='',campaign={},trackingId='';
+const track=(event,detail={})=>{
+  const payload={event,event_time:new Date().toISOString(),origin:campaign.c1||origin||'direct',campaign:campaign.c2||'',creative:campaign.c3||'',path:location.pathname,tracking_id:trackingId,...detail};
+  window.dataLayer=window.dataLayer||[]; window.dataLayer.push(payload);
+  if(typeof window.gtag==='function' && event!=='page_view') window.gtag('event',event,detail);
+  if(typeof window.fbq==='function'){
+    if(event==='calculator_view') window.fbq('track','ViewContent',detail);
+    if(event==='quote_calculated') window.fbq('trackCustom','QuoteCalculated',detail);
+    if(event==='quote_requested') window.fbq('track','Lead',detail);
+  }
+  window.dispatchEvent(new CustomEvent('fonseca:track',{detail:payload}));
+};
+try{
+  const p=new URLSearchParams(location.search);
+  const clean=v=>String(v||'').trim().slice(0,120);
+  campaign={c1:clean(p.get('c1')||p.get('origem')),c2:clean(p.get('c2')),c3:clean(p.get('c3'))};
+  origin=campaign.c1;
+  trackingId=sessionStorage.getItem('fonseca_tracking_id')||('fl-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8));
+  sessionStorage.setItem('fonseca_tracking_id',trackingId);
+  const stored=JSON.parse(sessionStorage.getItem('fonseca_campaign')||'{}');
+  campaign={c1:campaign.c1||stored.c1||'',c2:campaign.c2||stored.c2||'',c3:campaign.c3||stored.c3||''};
+  sessionStorage.setItem('fonseca_campaign',JSON.stringify(campaign));
+}catch{}
+track('page_view',{landing:location.pathname==='/frete'||location.pathname==='/frete/'});
+if(location.pathname==='/frete'||location.pathname==='/frete/'){
+  setTimeout(()=>track('calculator_view',{source:'short_link'}),0);
+}
+document.addEventListener('click',e=>{
+  const el=e.target.closest?.('a,button');
+  if(!el)return;
+  const label=(el.textContent||el.getAttribute('aria-label')||'').trim().replace(/\\s+/g,' ').slice(0,100);
+  track('click',{element:el.tagName.toLowerCase(),label,href:el.getAttribute('href')||''});
+},{passive:true});
+const status=(m,e=false)=>{const x=$('dcStatus');x.textContent=m;x.classList.add('show');x.style.border=e?'1px solid rgba(200,16,46,.45)':'1px solid #242427';};
+const cstatus=(m,e=false)=>{const x=$('dcConfirmStatus');x.textContent=m;x.classList.add('show');x.style.border=e?'1px solid rgba(200,16,46,.45)':'1px solid #242427';};
+const money=v=>Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const inputs=()=>[...$('deliveryFields').querySelectorAll('.delivery-block')].map((b,i)=>({index:i+1,address:b.querySelector('.delivery-address').value.trim()}));
+const routeKey=()=>JSON.stringify({pickup:$('dcPickup').value.trim(),deliveries:inputs().map(x=>x.address)});
+const hideResult=()=>{officialQuote=null;calculatedRouteKey='';$('dcResult').classList.remove('show');$('quoteStepConfirm').hidden=true;};
+const invalidate=()=>{if(officialQuote||calculatedRouteKey)hideResult();};
+const bind=()=>{document.querySelectorAll('.delivery-address,#dcPickup').forEach(x=>{if(x.dataset.bound)return;x.dataset.bound=1;x.addEventListener('input',invalidate);x.addEventListener('change',invalidate);});document.querySelectorAll('.clear-address').forEach(b=>{if(b.dataset.bound)return;b.dataset.bound=1;b.addEventListener('click',()=>{const x=$(b.dataset.clear);if(x){x.value='';x.focus();}invalidate();});});};
+const renderRefs=(preserve=true)=>{const old=[...$('deliveryRefsFields').querySelectorAll('input')].map(x=>x.value),w=$('deliveryRefsFields');w.innerHTML='';inputs().forEach((d,i)=>{const id='dcDeliveryRef'+(i+1),b=document.createElement('div');b.className='calc-field full delivery-ref-field';b.innerHTML='<label for="'+id+'">Complemento da entrega '+(i+1)+' <span style="font-weight:400;color:#777">(opcional)</span></label><input class="delivery-ref-input" id="'+id+'" placeholder="Ex.: recepção, portaria, empresa X"/>';if(preserve&&old[i])b.querySelector('input').value=old[i];w.append(b);});};
+const updateLimit=()=>{const n=$('deliveryFields').querySelectorAll('.delivery-block').length,limit=n>=MAX_DELIVERIES;$('addDelivery').disabled=limit;$('addDelivery').textContent=limit?'Limite de '+MAX_DELIVERIES+' entregas atingido':'+ Adicionar outra entrega';};
+const renumber=()=>{[...$('deliveryFields').querySelectorAll('.delivery-block')].forEach((b,i)=>{b.dataset.deliveryIndex=i+1;b.querySelector('.delivery-block-title').textContent='Entrega '+(i+1);const x=b.querySelector('.delivery-address');x.id=i?'dcDelivery'+(i+1):'dcDelivery';b.querySelector('label').htmlFor=x.id;b.querySelector('.clear-address').dataset.clear=x.id;});updateLimit();renderRefs();bind();};
+bind();updateLimit();renderRefs(false);
+$('addDelivery').addEventListener('click',()=>{const n=$('deliveryFields').querySelectorAll('.delivery-block').length;if(n>=MAX_DELIVERIES){status('Cada orçamento aceita no máximo '+MAX_DELIVERIES+' entregas.',true);return;}const i=n+1,b=document.createElement('div'),id='dcDelivery'+i;b.className='delivery-block';b.innerHTML='<div class="delivery-block-head"><span class="delivery-block-title">Entrega '+i+'</span><button type="button" class="remove-delivery">Remover</button></div><div class="calc-field full address-input-wrap"><label for="'+id+'">Endereço da entrega</label><input id="'+id+'" class="delivery-address" autocomplete="street-address" placeholder="Rua, número, bairro, cidade"><button type="button" class="clear-address" data-clear="'+id+'" aria-label="Limpar endereço da entrega">×</button></div>';$('deliveryFields').append(b);b.querySelector('.remove-delivery').onclick=()=>{b.remove();renumber();invalidate();};bind();updateLimit();renderRefs();b.querySelector('.delivery-address').focus();invalidate();});
+const whenBtns=[...document.querySelectorAll('.when-btn')];whenBtns.forEach(b=>b.onclick=()=>{whenMode=b.dataset.when;whenBtns.forEach(x=>x.classList.toggle('active',x===b));$('scheduleFields').classList.toggle('show',whenMode==='schedule');});
+const invBtns=[...document.querySelectorAll('.invoice-btn')];invBtns.forEach(b=>b.onclick=()=>{invoiceMode=b.dataset.invoice;invBtns.forEach(x=>x.classList.toggle('active',x===b));});
+const t=new Date();$('dcDate').min=[t.getFullYear(),String(t.getMonth()+1).padStart(2,'0'),String(t.getDate()).padStart(2,'0')].join('-');
+const when=()=>{if(whenMode==='now')return'Agora';const d=$('dcDate').value,h=$('dcTime').value;if(!d||!h)throw Error('Informe a data e o horário da coleta.');const[y,m,day]=d.split('-');return day+'/'+m+'/'+y+' às '+h;};
+$('dcCalculate').onclick=async()=>{hideResult();const b=$('dcCalculate');try{const pickup=$('dcPickup').value.trim(),ds=inputs();if(!pickup||ds.some(x=>!x.address))throw Error('Informe a coleta e todas as entregas.');const key=routeKey();status('Calculando '+ds.length+' entrega'+(ds.length>1?'s':'')+'…');b.disabled=true;b.textContent='CALCULANDO…';const q=await requestOfficialQuote(pickup,ds);if(routeKey()!==key)throw Error('A rota foi alterada durante o cálculo. Calcule novamente.');officialQuote=q;calculatedRouteKey=key;const trips=Array.isArray(q.sharedTrips)?q.sharedTrips:[],km=q.deliveries.reduce((a,x)=>a+(x.distanceKm===null?0:Number(x.distanceKm)),0)+trips.reduce((a,x)=>a+Number(x.distanceKm),0);$('rPrice').textContent=money(q.totalPrice);$('rDistance').textContent=km.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+' km';$('requestQuoteBtn').textContent='SOLICITAR ESTA ENTREGA — '+money(q.totalPrice);const rd=$('rDeliveries');rd.innerHTML='';ds.forEach((d,i)=>{const e=document.createElement('div');e.className='quick-delivery-line';e.textContent='Entrega '+(i+1)+': '+d.address;rd.append(e);});const rs=$('rSharedTrips');rs.innerHTML='';trips.forEach(x=>{const e=document.createElement('div');e.className='quick-shared-line';e.textContent='Viagem compartilhada — entregas '+x.deliveryIndexes.map(i=>i+1).join(', ')+' • '+money(x.price);rs.append(e);});$('dcResult').classList.add('show');track('quote_calculated',{deliveries:ds.length,price:Number(q.totalPrice)||0});status('Valor calculado. Confira o preço antes de solicitar.');$('dcResult').scrollIntoView({behavior:'smooth',block:'center'});}catch(e){status(e.message||'Não foi possível calcular. Tente novamente.',true)}finally{b.disabled=false;b.textContent='CALCULAR VALOR';}};
+const fillSummary=()=>{const ds=inputs();$('summaryPickup').textContent=$('dcPickup').value.trim();const pr=$('dcPickupRef').value.trim();$('summaryPickupRef').textContent=pr;$('summaryPickupRefRow').style.display=pr?'flex':'none';const w=$('summaryDeliveries');w.innerHTML='';ds.forEach((d,i)=>{const e=document.createElement('div');e.className='summary-line';const ref=$('dcDeliveryRef'+(i+1))?.value.trim()||'';e.innerHTML='<span>Entrega '+(i+1)+'</span><strong>'+d.address+(ref?'<br><small>'+ref+'</small>':'')+'</strong>';w.append(e);});$('summaryPrice').textContent=money(officialQuote.totalPrice);$('summaryWhen').textContent=when();};
+$('requestQuoteBtn').onclick=()=>{if(!officialQuote||calculatedRouteKey!==routeKey()){invalidate();status('O orçamento anterior foi invalidado. Calcule novamente.',true);return;}renderRefs();fillSummary();$('quoteStepConfirm').hidden=false;$('quoteStepConfirm').scrollIntoView({behavior:'smooth',block:'start'});};
+$('editAddressesBtn').onclick=()=>{$('dcResult').classList.remove('show');$('quoteStepConfirm').hidden=true;$('dcPickup').focus();};
+$('backToQuoteBtn').onclick=()=>{$('quoteStepConfirm').hidden=true;$('dcResult').classList.add('show');$('dcResult').scrollIntoView({behavior:'smooth',block:'start'});};
+$('dcConfirm').onclick=async()=>{const button=$('dcConfirm');if(button.disabled)return;button.disabled=true;button.textContent='PROTEGENDO ORÇAMENTO…';try{if(!officialQuote||calculatedRouteKey!==routeKey())throw Error('O orçamento foi alterado. Volte e calcule novamente.');const name=$('dcName').value.trim(),item=$('dcItem').value.trim(),pickup=$('dcPickup').value.trim(),pr=$('dcPickupRef').value.trim(),ds=inputs();if(!name||!item)throw Error('Informe seu nome e o que será transportado.');if(!invoiceMode)throw Error('Informe se precisa de Nota Fiscal.');const w=when(),deliveryRefs=ds.map((d,i)=>$('dcDeliveryRef'+(i+1))?.value.trim()||''),scheduledAt=whenMode==='schedule'?$('dcDate').value+'T'+$('dcTime').value:null;const protection=await submitProtectedQuote(officialQuote,{name,pickupRef:pr,item,scheduledAt,source:origin||null,deliveryRefs,timingMode:whenMode==='schedule'?'scheduled':'now',invoiceRequired:invoiceMode==='yes'});const snapshot=officialQuote.protectedQuote.snapshot;track('quote_requested',{quote_code:protection.code,price:Number(snapshot?.totalPrice||officialQuote.totalPrice)||0});const km=Number(snapshot.totalDistanceKm);const timingText=whenMode==='now'?'para agora':'para '+w;const lines=['Olá! Me chamo '+name+' e gostaria de solicitar uma coleta '+timingText+'.','','📦 *COLETA*',pickup];if(pr)lines.push('Complemento: '+pr);ds.forEach((d,i)=>{const ref=$('dcDeliveryRef'+(i+1))?.value.trim()||'';lines.push('','📍 *ENTREGA'+(ds.length>1?' '+(i+1):'')+'*',d.address);if(ref)lines.push('Complemento: '+ref);});lines.push('','🛵 *TRANSPORTE*',item,'','🧾 *NOTA FISCAL*',invoiceMode==='yes'?'Preciso de Nota Fiscal':'Não preciso de Nota Fiscal','','📏 *DISTÂNCIA TOTAL*',km.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+' km','','💰 *VALOR ESTIMADO*',money(snapshot.totalPrice),'','Gostaria de confirmar a disponibilidade para esta coleta.','','Orçamento oficial: '+protection.code,'Conferir orçamento oficial: '+protection.verificationUrl);if(origin)lines.push('','Origem: '+origin);const href='https://wa.me/'+WA+'?text='+encodeURIComponent(lines.join('\n'));$('dcWhatsapp').href=href;const win=window.open(href,'_blank','noopener');if(!win)location.href=href;cstatus('WhatsApp aberto com o orçamento oficial protegido.');}catch(e){cstatus(e.message||'Revise os dados antes de enviar.',true)}finally{button.disabled=false;button.textContent='CONFIRMAR PELO WHATSAPP';}};
 })();
 </script>
 <script>
@@ -1453,10 +1459,19 @@ import { MAX_DELIVERIES, requestOfficialQuote } from "./frontend-quote.mjs";
  strip.addEventListener('scroll',()=>{if(!raf)raf=requestAnimationFrame(sync)},{passive:true});addEventListener('resize',sync,{passive:true});sync();
 })();
 </script>
-<!-- V12.9: camada de segurança de produção preparada; visual V12.8 e preços V21.11 preservados. -->
 
+<script id="quote-section-viewport-position">
+(function(){
+  const section=document.getElementById('calcular-rota');
+  if(!section)return;
 
+  const isDirectCalculator=location.pathname==='/frete'||location.pathname==='/frete/'||location.hash==='#calcular-rota';
 
+  if(isDirectCalculator && location.hash!=='#calcular-rota'){
+    requestAnimationFrame(()=>{ location.hash='calcular-rota'; });
+  }
+})();
+</script>
 <script id="v169-photo-header-trigger">
 (function(){
   function init(){
@@ -1480,5 +1495,20 @@ import { MAX_DELIVERIES, requestOfficialQuote } from "./frontend-quote.mjs";
 })();
 </script>
 
+
+<script id="desktop-gallery-drag">
+(function(){
+  function enable(selector){
+    const strip=document.querySelector(selector); if(!strip)return;
+    let dragging=false,startX=0,startScroll=0,moved=false;
+    strip.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'&&e.button!==0)return;dragging=true;moved=false;startX=e.clientX;startScroll=strip.scrollLeft;strip.classList.add('is-dragging');strip.setPointerCapture?.(e.pointerId);},{passive:true});
+    strip.addEventListener('pointermove',e=>{if(!dragging)return;const dx=e.clientX-startX;if(Math.abs(dx)>4)moved=true;strip.scrollLeft=startScroll-dx;},{passive:true});
+    const end=e=>{if(!dragging)return;dragging=false;strip.classList.remove('is-dragging');if(e.pointerId!==undefined)strip.releasePointerCapture?.(e.pointerId);};
+    strip.addEventListener('pointerup',end);strip.addEventListener('pointercancel',end);
+    strip.addEventListener('click',e=>{if(moved){e.preventDefault();e.stopPropagation();moved=false;}},true);
+  }
+  enable('.route-strip');enable('.review-strip');
+})();
+</script>
 </body>
 </html>
