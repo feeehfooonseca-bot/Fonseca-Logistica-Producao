@@ -1457,14 +1457,9 @@ $('dcConfirm').onclick=async()=>{const button=$('dcConfirm');if(button.disabled)
   document.querySelectorAll('a[href="#calcular-rota"]').forEach(link=>{
     link.addEventListener('click',openCalculator);
   });
-  const isDirectFrete=location.pathname==='/frete'||location.pathname==='/frete/';
-  const openDirect=()=>{
-    if(isDirectFrete||location.hash==='#calcular-rota'){
-      requestAnimationFrame(()=>requestAnimationFrame(()=>openCalculator(null)));
-    }
-  };
-  if(document.readyState==='complete') setTimeout(openDirect,80);
-  else window.addEventListener('load',()=>setTimeout(openDirect,80),{once:true});
+  if(location.pathname==='/frete'||location.pathname==='/frete/'||location.hash==='#calcular-rota'){
+    requestAnimationFrame(()=>requestAnimationFrame(()=>openCalculator(null)));
+  }
 })();
 </script>
 <script id="v169-photo-header-trigger">
