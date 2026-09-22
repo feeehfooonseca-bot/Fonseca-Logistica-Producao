@@ -1446,11 +1446,14 @@ $('dcConfirm').onclick=async()=>{const button=$('dcConfirm');if(button.disabled)
     const available=Math.max(0,window.innerHeight-headerHeight);
     const sectionHeight=section.getBoundingClientRect().height;
     const viewportPadding=16;
-    const offset=sectionHeight < available
+
+    // Quando a seção cabe inteira no espaço restante, centraliza o bloco completo.
+    // Quando não cabe, começa logo abaixo do header e mantém um respiro superior.
+    const contentOffset=sectionHeight <= available
       ? headerHeight + Math.max(viewportPadding,(available-sectionHeight)/2)
       : headerHeight + viewportPadding;
 
-    window.scrollTo({top:Math.max(0,pageTop-offset),behavior:'smooth'});
+    window.scrollTo({top:Math.max(0,pageTop-contentOffset),behavior:'smooth'});
     history.replaceState(null,'','#calcular-rota');
   }
 
