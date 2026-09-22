@@ -1465,8 +1465,28 @@ $('dcConfirm').onclick=async()=>{const button=$('dcConfirm');if(button.disabled)
     history.replaceState(null,'','#calcular-rota');
   }
 
+  async function waitForLayout(){
+    if(document.fonts && document.fonts.ready){
+      try{await document.fonts.ready}catch{}
+    }
+
+    const pendingImages=Array.from(document.images).filter(img=>{
+      return !img.loading || img.loading!=='lazy';
+    }).filter(img=>!img.complete);
+
+    if(pendingImages.length){
+      await Promise.all(pendingImages.map(img=>new Promise(resolve=>{
+        img.addEventListener('load',resolve,{once:true});
+        img.addEventListener('error',resolve,{once:true});
+      })));
+    }
+
+    await new Promise(resolve=>requestAnimationFrame(resolve));
+    await new Promise(resolve=>requestAnimationFrame(resolve));
+  }
+
   const scheduleOpen=()=>{
-    requestAnimationFrame(()=>requestAnimationFrame(()=>openCalculator(null)));
+    waitForLayout().then(()=>openCalculator(null));
   };
 
   document.querySelectorAll('a[href="#calcular-rota"]').forEach(link=>{
