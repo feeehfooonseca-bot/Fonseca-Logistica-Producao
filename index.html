@@ -1357,7 +1357,7 @@ let whenMode='now',invoiceMode=null,officialQuote=null,calculatedRouteKey='',ori
 const track=(event,detail={})=>{
   const payload={event,event_time:new Date().toISOString(),origin:campaign.c1||origin||'direct',campaign:campaign.c2||'',creative:campaign.c3||'',path:location.pathname,tracking_id:trackingId,...detail};
   window.dataLayer=window.dataLayer||[]; window.dataLayer.push(payload);
-  if(typeof window.gtag==='function') window.gtag('event',event,detail);
+  if(typeof window.gtag==='function' && event!=='page_view') window.gtag('event',event,detail);
   window.dispatchEvent(new CustomEvent('fonseca:track',{detail:payload}));
 };
 try{
