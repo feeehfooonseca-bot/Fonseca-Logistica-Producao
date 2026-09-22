@@ -520,6 +520,8 @@ function validAddress(value) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+const PAGES_PREVIEW_ORIGIN_RE = /^https:\/\/[a-z0-9-]+\.fonseca-logistica-producao\.pages\.dev$/;
+
 function corsHeadersFor(origin, configuredOrigins) {
   if (!origin) return {};
 
@@ -528,7 +530,9 @@ function corsHeadersFor(origin, configuredOrigins) {
     .map((value) => value.trim())
     .filter(isCanonicalWebOrigin);
 
-  if (!allowedOrigins.includes(origin)) return null;
+  if (!isCanonicalWebOrigin(origin)) return null;
+  if (!allowedOrigins.includes(origin) && !PAGES_PREVIEW_ORIGIN_RE.test(origin)) return null;
+
   return {
     "Access-Control-Allow-Origin": origin,
     Vary: "Origin",
