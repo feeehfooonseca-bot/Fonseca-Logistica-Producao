@@ -375,31 +375,133 @@ async function submitQuote(request, env, corsHeaders) {
 }
 
 async function verifyQuote(token, env) {
-  const headers = secureHtmlHeaders();
-  if (!/^[A-Za-z0-9_-]{40,80}$/.test(token)) return htmlVerification(null, headers);
+  const scriptNonce = randomToken(18);
+  const headers = secureHtmlHeaders(scriptNonce);
+  if (!/^[A-Za-z0-9_-]{40,80}$/.test(token)) return htmlVerification(null, headers, scriptNonce);
   if (!env.QUOTE_DB) return htmlVerificationUnavailable(headers);
   try {
     const record = await first(env.QUOTE_DB, `SELECT code, status, created_at, expires_at, pickup,
       deliveries_json, total_price, total_distance_km, timing_mode, scheduled_at
       FROM protected_quotes WHERE public_token_hash = ?`, await sha256(token));
-    return htmlVerification(record, headers);
+    return htmlVerification(record, headers, scriptNonce);
   } catch {
     return htmlVerificationUnavailable(headers);
   }
 }
 
-function htmlVerification(record, headers) {
+function htmlVerification(record, headers, scriptNonce) {
   let state = "🔴 INVÁLIDO / NÃO ENCONTRADO";
   if (record) {
     if (record.status !== "active") state = "🔴 INVÁLIDO";
     else if (Date.parse(record.expires_at) <= Date.now()) state = "🟡 EXPIRADO";
     else state = "🟢 VÁLIDO";
   }
+
   let deliveries = [];
   try { deliveries = JSON.parse(record?.deliveries_json || "[]"); } catch { deliveries = []; }
-  const destinations = deliveries.map((item) => `<li>${escapeHtml(item.address)}</li>`).join("");
-  const content = record ? `<dl><dt>Código</dt><dd>${escapeHtml(record.code)}</dd><dt>Coleta</dt><dd>${escapeHtml(record.pickup)}</dd><dt>Destinos</dt><dd><ol>${destinations}</ol></dd><dt>Distância</dt><dd>${escapeHtml(record.total_distance_km)} km</dd><dt>Valor</dt><dd>R$ ${escapeHtml(record.total_price)}</dd><dt>Solicitado</dt><dd>${escapeHtml(record.created_at)}</dd>${record.scheduled_at ? `<dt>Agendamento</dt><dd>${escapeHtml(record.scheduled_at)}</dd>` : ""}<dt>Validade</dt><dd>${escapeHtml(record.expires_at)}</dd></dl>` : "";
-  return new Response(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Verificação de orçamento</title></head><body><main><h1>${state}</h1>${content}</main></body></html>`, { status: record ? 200 : 404, headers });
+
+  const pickup = record?.pickup || "";
+  const addressRows = record
+    ? [
+        { label: "Coleta", address: pickup, className: "quote-address quote-pickup" },
+        ...deliveries.map((item, index) => ({
+          label: `Entrega ${index + 1}`,
+          address: item.address,
+          className: "quote-address",
+        })),
+      ]
+    : [];
+
+  const destinations = deliveries.map((item, index) => {
+    const address = escapeHtml(item.address);
+    return `<li><div class="quote-address-line"><span>${escapeHtml(`Entrega ${index + 1}`)}: ${address}</span><button type="button" class="copy-address" data-copy="${address}">COPIAR ENTREGA ${index + 1}</button></div></li>`;
+  }).join("");
+
+  const allAddresses = record
+    ? [
+        `Coleta: ${pickup}`,
+        ...deliveries.map((item, index) => `Entrega ${index + 1}: ${item.address}`),
+      ].join("\n")
+    : "";
+
+  const copyScript = record ? `<script nonce="${scriptNonce}">
+(function(){
+  function fallbackCopy(text){
+    var area=document.createElement("textarea");
+    area.value=text;
+    area.setAttribute("readonly","");
+    area.style.position="fixed";
+    area.style.opacity="0";
+    document.body.appendChild(area);
+    area.select();
+    var ok=false;
+    try{ok=document.execCommand("copy");}catch(_){}
+    area.remove();
+    return ok;
+  }
+  async function copyText(text,button){
+    var ok=false;
+    try{
+      if(navigator.clipboard && window.isSecureContext){
+        await navigator.clipboard.writeText(text);
+        ok=true;
+      }else{
+        ok=fallbackCopy(text);
+      }
+    }catch(_){
+      ok=fallbackCopy(text);
+    }
+    if(button){
+      var original=button.textContent;
+      button.textContent=ok?"COPIADO":"NÃO COPIOU";
+      setTimeout(function(){button.textContent=original;},1400);
+    }
+  }
+  document.querySelectorAll(".copy-address").forEach(function(button){
+    button.addEventListener("click",function(){copyText(button.dataset.copy||"",button);});
+  });
+  var all=document.querySelector(".copy-all-addresses");
+  if(all){
+    all.addEventListener("click",function(){copyText(all.dataset.copy||"",all);});
+  }
+})();
+</script>` : "";
+
+  const content = record ? `<section>
+    <dl>
+      <dt>Código</dt><dd>${escapeHtml(record.code)}</dd>
+      <dt>Coleta</dt><dd>${escapeHtml(pickup)}</dd>
+      <dt>Destinos</dt><dd><ol>${destinations}</ol></dd>
+      <dt>Distância</dt><dd>${escapeHtml(record.total_distance_km)} km</dd>
+      <dt>Valor</dt><dd>R$ ${escapeHtml(record.total_price)}</dd>
+      <dt>Solicitado</dt><dd>${escapeHtml(record.created_at)}</dd>
+      ${record.scheduled_at ? `<dt>Agendamento</dt><dd>${escapeHtml(record.scheduled_at)}</dd>` : ""}
+      <dt>Validade</dt><dd>${escapeHtml(record.expires_at)}</dd>
+    </dl>
+    <div class="quote-copy-actions">
+      <button type="button" class="copy-address" data-copy="${escapeHtml(pickup)}">COPIAR COLETA</button>
+      <button type="button" class="copy-all-addresses" data-copy="${escapeHtml(allAddresses)}">COPIAR TODOS OS ENDEREÇOS</button>
+    </div>
+  </section>` : "";
+
+  const style = record ? `<style nonce="${scriptNonce}">
+    body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.45;margin:0;padding:24px;background:#f6f6f6;color:#161616}
+    main{max-width:760px;margin:0 auto;background:#fff;padding:24px;border:1px solid #ddd;border-radius:14px}
+    h1{font-size:1.35rem;margin-top:0}
+    dl{margin:0}
+    dt{font-weight:700;margin-top:16px}
+    dd{margin:5px 0 0;overflow-wrap:anywhere}
+    ol{padding-left:22px;margin-bottom:0}
+    li{margin:0 0 12px}
+    .quote-address-line{display:flex;gap:10px;align-items:flex-start;justify-content:space-between}
+    .quote-address-line span{overflow-wrap:anywhere;flex:1}
+    button{font:inherit;font-weight:700;border:1px solid #222;border-radius:8px;background:#fff;padding:8px 10px;cursor:pointer;white-space:nowrap}
+    button:active{transform:translateY(1px)}
+    .quote-copy-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
+    @media (max-width:560px){body{padding:12px}main{padding:18px}.quote-address-line{display:block}.quote-address-line button{margin-top:8px}.quote-copy-actions button{width:100%}}
+  </style>` : "";
+
+  return new Response(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Verificação de orçamento</title>${style}</head><body><main><h1>${state}</h1>${content}</main>${copyScript}</body></html>`, { status: record ? 200 : 404, headers });
 }
 
 function htmlVerificationUnavailable(headers) {
@@ -468,7 +570,19 @@ function run(db, sql, ...values) { return db.prepare(sql).bind(...values).run();
 function publicRecord(record, token, requestUrl, idempotent) { return { ok: true, code: record.code, createdAt: record.created_at, expiresAt: record.expires_at, verificationUrl: `${new URL(requestUrl).origin}/quote/verify/${token}`, idempotent }; }
 function quoteStorageUnavailable(corsHeaders) { return json({ error: "Armazenamento de orçamento temporariamente indisponível." }, 503, corsHeaders); }
 function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]); }
-function secureHtmlHeaders() { return { "Content-Type": "text/html; charset=UTF-8", "Cache-Control": "no-store", "Content-Security-Policy": "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'", "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Referrer-Policy": "no-referrer" }; }
+function secureHtmlHeaders(scriptNonce = null) {
+  const csp = scriptNonce
+    ? `default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; script-src 'nonce-${scriptNonce}'; style-src 'nonce-${scriptNonce}'`
+    : "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+  return {
+    "Content-Type": "text/html; charset=UTF-8",
+    "Cache-Control": "no-store",
+    "Content-Security-Policy": csp,
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+  };
+}
 
 export function calculatePrice({
   deliveryAddress,
