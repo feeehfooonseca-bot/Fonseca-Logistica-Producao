@@ -454,9 +454,9 @@ footer .footer-inner,footer .footer-brand,footer .footer-meta,footer .footer-cle
   .premium-nav{padding-top:94px!important;background:rgba(5,5,6,.84)!important;backdrop-filter:blur(28px) saturate(110%)!important;-webkit-backdrop-filter:blur(28px) saturate(110%)!important}
 }
 
-/* TESTE PREMIUM 4 — topo no fluxo normal para impedir sobreposição com o primeiro texto do hero. */
+/* TESTE PREMIUM 4 — header sobreposto ao hero, sem ocupar espaço de layout. */
 .topbar{
-  position:sticky!important;top:0!important;right:auto!important;bottom:auto!important;left:auto!important;
+  position:absolute!important;top:0!important;right:0!important;bottom:auto!important;left:0!important;
   z-index:1000!important;display:flex!important;align-items:center!important;justify-content:space-between!important;
   margin:0!important;background:linear-gradient(180deg,rgba(5,5,6,.58),rgba(5,5,6,0))!important;
   border:0!important;border-bottom:1px solid transparent!important;box-shadow:none!important;
@@ -481,7 +481,7 @@ footer .footer-inner,footer .footer-brand,footer .footer-meta,footer .footer-cle
 .premium-menu[aria-expanded="true"] .premium-menu-lines i:last-child{transform:rotate(-45deg)!important}
 .hero-photo{
   position:relative!important;isolation:isolate!important;margin:0!important;padding:0!important;
-  min-height:100svh!important;display:flex!important;align-items:flex-end!important;overflow:hidden!important;background:#080808!important;
+  min-height:calc(100svh + 82px)!important;display:flex!important;align-items:flex-end!important;overflow:hidden!important;background:#080808!important;
 }
 .hero-photo .hero-media{position:absolute!important;top:0!important;right:0!important;bottom:0!important;left:0!important;inset:0!important;z-index:0!important;margin:0!important;padding:0!important;overflow:hidden!important}
 .hero-photo .hero-media img{display:block!important;position:absolute!important;inset:0!important;width:100%!important;height:100%!important;min-width:100%!important;min-height:100%!important;object-fit:cover!important;margin:0!important;padding:0!important}
@@ -492,7 +492,7 @@ main{margin:0!important;padding:0!important}
   .topbar{height:66px!important;min-height:66px!important;padding:7px 16px!important}
   .brand-official{width:136px!important;height:38px!important;flex:0 0 136px!important}
   .premium-menu{width:40px!important;height:40px!important;flex:0 0 40px!important}
-  .hero-photo{min-height:100svh!important;margin:0!important;padding:0!important}
+  .hero-photo{min-height:calc(100svh + 66px)!important;margin:0!important;padding:0!important}
   .hero-photo .hero-media{top:0!important;right:0!important;bottom:0!important;left:0!important}
   .hero-photo .hero-media img{object-position:center 45%!important;filter:saturate(.76) contrast(1.06) brightness(.60)!important}
   .hero-photo .hero-shade{background:linear-gradient(0deg,#080808 0%,rgba(8,8,8,.95) 28%,rgba(8,8,8,.58) 58%,rgba(8,8,8,.12) 100%),linear-gradient(90deg,rgba(8,8,8,.42),rgba(8,8,8,.03))!important}
