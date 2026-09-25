@@ -3,7 +3,7 @@
 ## Política de CORS
 
 O Worker usa a variável de ambiente `ALLOWED_ORIGINS` como allowlist. O valor é uma
-lista separada por vírgulas de origins HTTP(S), sem caminho e sem barra final, por
+lista separada por vírgulas de origins HTTPS, sem caminho e sem barra final, por
 exemplo no formato `https://host,https://host:porta`. Os valores reais devem ser
 definidos no Cloudflare e não ficam versionados.
 
