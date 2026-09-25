@@ -588,8 +588,7 @@ function isCanonicalWebOrigin(value) {
   if (!value || value === "*") return false;
   try {
     const parsed = new URL(value);
-    const localDevelopment = parsed.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(parsed.hostname);
-    return (parsed.protocol === "https:" || localDevelopment) && parsed.origin === value;
+    return parsed.protocol === "https:" && parsed.origin === value;
   } catch {
     return false;
   }
