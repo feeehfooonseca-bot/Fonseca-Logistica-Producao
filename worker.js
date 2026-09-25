@@ -1,5 +1,7 @@
 const RATE_PER_KM = 1.1;
 const MAX_DELIVERIES = 20;
+const MAX_ADDRESS_LENGTH = 240;
+const MAX_REQUEST_BODY_BYTES = 64 * 1024;
 const GEOCODE_CACHE_TTL_SECONDS = 86400;
 const GEOCODE_MIN_CONFIDENCE = 0.2;
 const GEOCODE_MIN_CITY_CONFIDENCE = 0.5;
@@ -74,12 +76,15 @@ export default {
         return json({ error: "Serviço temporariamente indisponível." }, 500, corsHeaders);
       }
 
-      let body;
-      try {
-        body = await request.json();
-      } catch {
-        return json({ error: "JSON inválido." }, 400, corsHeaders);
+      const bodyResult = await readJsonBody(request, MAX_REQUEST_BODY_BYTES);
+      if (!bodyResult.ok) {
+        return json(
+          { error: bodyResult.reason === "too_large" ? "Solicitação muito grande." : "JSON inválido." },
+          bodyResult.reason === "too_large" ? 413 : 400,
+          corsHeaders,
+        );
       }
+      const body = bodyResult.value;
 
       const pickup = validAddress(body?.pickup);
       const usesDeliveries = Object.prototype.hasOwnProperty.call(body || {}, "deliveries");
@@ -338,8 +343,15 @@ async function submitQuote(request, env, corsHeaders) {
   }
   if (!env.QUOTE_SIGNING_SECRET) return json({ error: "Confirmação protegida indisponível." }, 503, corsHeaders);
   if (!env.QUOTE_DB) return json({ error: "Armazenamento de orçamento indisponível." }, 503, corsHeaders);
-  let body;
-  try { body = await request.json(); } catch { return json({ error: "JSON inválido." }, 400, corsHeaders); }
+  const bodyResult = await readJsonBody(request, MAX_REQUEST_BODY_BYTES);
+  if (!bodyResult.ok) {
+    return json(
+      { error: bodyResult.reason === "too_large" ? "Solicitação muito grande." : "JSON inválido." },
+      bodyResult.reason === "too_large" ? 413 : 400,
+      corsHeaders,
+    );
+  }
+  const body = bodyResult.value;
   const proof = body?.proof;
   const snapshot = body?.snapshot;
   if (!validProofShape(proof) || !validSnapshot(snapshot)) return json({ error: "Prova de orçamento inválida." }, 400, corsHeaders);
@@ -517,7 +529,40 @@ export function calculatePrice({
 }
 
 function validAddress(value) {
-  return typeof value === "string" && value.trim() ? value.trim() : null;
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return normalized && normalized.length <= MAX_ADDRESS_LENGTH ? normalized : null;
+}
+
+async function readJsonBody(request, maxBytes) {
+  const declaredLength = Number(request.headers.get("Content-Length"));
+  if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
+    return { ok: false, reason: "too_large" };
+  }
+
+  const reader = request.body?.getReader();
+  if (!reader) return { ok: false, reason: "invalid" };
+
+  const decoder = new TextDecoder();
+  const chunks = [];
+  let totalBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > maxBytes) {
+        await reader.cancel();
+        return { ok: false, reason: "too_large" };
+      }
+      chunks.push(decoder.decode(value, { stream: true }));
+    }
+    chunks.push(decoder.decode());
+    return { ok: true, value: JSON.parse(chunks.join("")) };
+  } catch {
+    try { await reader.cancel(); } catch {}
+    return { ok: false, reason: "invalid" };
+  }
 }
 
 const PAGES_PREVIEW_ORIGIN_RE = /^https:\/\/[a-z0-9-]+\.fonseca-logistica-producao\.pages\.dev$/;
@@ -738,6 +783,8 @@ function json(data, status, corsHeaders) {
       ...corsHeaders,
       "Content-Type": "application/json; charset=UTF-8",
       "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+      "Referrer-Policy": "no-referrer",
     },
   });
 }
