@@ -454,9 +454,9 @@ footer .footer-inner,footer .footer-brand,footer .footer-meta,footer .footer-cle
   .premium-nav{padding-top:94px!important;background:rgba(5,5,6,.84)!important;backdrop-filter:blur(28px) saturate(110%)!important;-webkit-backdrop-filter:blur(28px) saturate(110%)!important}
 }
 
-/* TESTE PREMIUM 4 — correção estrutural definitiva do topo. Baseline V21.11 preservado. */
+/* TESTE PREMIUM 4 — topo no fluxo normal para impedir sobreposição com o primeiro texto do hero. */
 .topbar{
-  position:fixed!important;top:0!important;right:0!important;bottom:auto!important;left:0!important;
+  position:sticky!important;top:0!important;right:auto!important;bottom:auto!important;left:auto!important;
   z-index:1000!important;display:flex!important;align-items:center!important;justify-content:space-between!important;
   margin:0!important;background:linear-gradient(180deg,rgba(5,5,6,.58),rgba(5,5,6,0))!important;
   border:0!important;border-bottom:1px solid transparent!important;box-shadow:none!important;
@@ -536,15 +536,6 @@ main{margin:0!important;padding:0!important}
 @media(prefers-reduced-motion:reduce){.hero-content>*{animation:none!important}.premium-nav,.premium-nav a,.premium-menu-lines i,.topbar{transition:none!important}}
 
 \n/* TESTE PREMIUM 6 — header neutralizado + Soluções editorial. Baseline V21.11 preservada. */\n.topbar.premium-scrolled{\n background:rgba(7,7,8,.88)!important;\n border-bottom-color:rgba(255,255,255,.055)!important;\n backdrop-filter:blur(24px) saturate(108%)!important;-webkit-backdrop-filter:blur(24px) saturate(108%)!important;\n box-shadow:0 14px 42px rgba(0,0,0,.22)!important;\n}\n.topbar.premium-scrolled:after{background:linear-gradient(90deg,transparent,rgba(255,255,255,.10) 44%,rgba(200,16,46,.11) 64%,transparent)!important;opacity:.72!important}\n#servicos{position:relative;overflow:hidden;padding-top:112px;padding-bottom:112px;background:linear-gradient(180deg,#080809 0%,#0a0a0b 52%,#080809 100%)}\n#servicos:before{content:"";position:absolute;width:520px;height:520px;right:-290px;top:-190px;border-radius:50%;background:radial-gradient(circle,rgba(200,16,46,.075),transparent 68%);filter:blur(12px);pointer-events:none}\n#servicos .wrap{position:relative;z-index:1}\n#servicos>.wrap>.eyebrow{margin-bottom:16px}\n#servicos>.wrap>h2{max-width:760px;margin-bottom:0;font-size:clamp(36px,5vw,64px);line-height:.98;letter-spacing:-.045em}\n#servicos .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:0;margin-top:64px;background:transparent;border:0;border-top:1px solid rgba(255,255,255,.11)}\n#servicos .card{position:relative;min-height:285px;padding:30px 34px 34px 0;background:transparent!important;border:0;border-bottom:1px solid rgba(255,255,255,.11);overflow:hidden;transition:background .38s ease,padding .38s cubic-bezier(.2,.7,.2,1)}\n#servicos .card:nth-child(odd){padding-right:48px;border-right:1px solid rgba(255,255,255,.11)}\n#servicos .card:nth-child(even){padding-left:48px}\n#servicos .card:before{content:"";position:absolute;left:0;top:-1px;width:0;height:2px;background:var(--red);transition:width .45s cubic-bezier(.2,.8,.2,1)}\n#servicos .card:nth-child(even):before{left:48px}\n#servicos .card>span{display:flex;align-items:center;gap:12px;color:rgba(255,255,255,.38);font-size:10px;font-weight:800;letter-spacing:.18em}\n#servicos .card>span:after{content:"";width:34px;height:1px;background:rgba(200,16,46,.72)}\n#servicos .card h3{max-width:310px;margin:78px 0 13px;font-size:clamp(23px,2.3vw,31px);line-height:1.04;letter-spacing:-.035em}\n#servicos .card p{max-width:390px;margin:0;color:#929298;font-size:14px;line-height:1.7}\n@media(hover:hover){#servicos .card:hover{background:rgba(255,255,255,.018)!important}#servicos .card:hover:before{width:72px}}\n@media(max-width:700px){\n #servicos{padding-top:86px;padding-bottom:82px}\n #servicos>.wrap>h2{max-width:330px;font-size:42px}\n #servicos .grid{grid-template-columns:1fr;margin-top:48px}\n #servicos .card,#servicos .card:nth-child(odd),#servicos .card:nth-child(even){min-height:0;padding:25px 4px 28px 0;border-right:0;border-bottom:1px solid rgba(255,255,255,.105)}\n #servicos .card:nth-child(even):before{left:0}\n #servicos .card h3{margin:37px 0 10px;font-size:25px}\n #servicos .card p{max-width:335px;font-size:13.5px;line-height:1.65}\n}\n
-
-/* TESTE PREMIUM 8 — afastamento visual do logo sem alterar o fluxo inferior. */
-@media(min-width:701px){
-  .hero-photo .eyebrow,
-  .hero-photo h1{
-    position:relative;
-    top:30px;
-  }
-}
 
 /* TESTE PREMIUM 7 — trust bar integrada + atributos refinados. Baseline V21.11 preservada. */
 .hero-photo .hero-content{padding-bottom:35px!important}
