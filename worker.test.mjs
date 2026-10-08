@@ -1265,3 +1265,82 @@ test("roteamento explícito preserva alias e distingue 404 de 405", async () => 
   assert.equal((await callWorker("/unknown", { env: {} })).status, 404);
   assert.equal((await callWorker("/quote/submit", { method: "GET", env: {} })).status, 405);
 });
+
+
+test('busca considera candidato preciso além do primeiro resultado', async () => {
+  const result = await requestQuote({ pickup: 'Coleta', delivery: 'Local' }, { fetch: async url => {
+    if (url.pathname === '/v1/geocode/search') {
+      assert.equal(url.searchParams.get('limit'), '5');
+      const point = pointsByAddress[url.searchParams.get('text')];
+      return geoapifyResponse({ results: [{ ...point, result_type: 'city' }, point] });
+    }
+    return geoapifyResponse({ features: [{ properties: { distance: 14000, legs: [{ distance: 4000 }, { distance: 6000 }, { distance: 4000 }] } }] });
+  } });
+  assert.equal(result.response.status, 200);
+  assert.equal(result.body.price, 15);
+});
+
+test('coordenadas confirmadas preservam o ponto e localidade é resolvida no servidor', async () => {
+  const locations = { pickup: { lat: -26.2, lon: -49.2, city: 'Cidade falsa' }, deliveries: [{ lat: -26.3, lon: -49.3 }] };
+  const result = await requestQuote({ pickup: 'Local marcado na coleta', deliveries: ['Local marcado na entrega'], locations }, { fetch: async url => {
+    if (url.pathname === '/v1/geocode/search') return geoapifyResponse({ results: [pointsByAddress.Base] });
+    if (url.pathname === '/v1/geocode/reverse') return geoapifyResponse({ results: [{ lat: 0, lon: 0, city: 'São Bento do Sul', country_code: 'br' }] });
+    assert.equal(url.searchParams.get('waypoints'), '-26.1,-49.1|-26.2,-49.2|-26.3,-49.3|-26.1,-49.1');
+    return geoapifyResponse({ features: [{ properties: { distance: 14000, legs: [{ distance: 4000 }, { distance: 6000 }, { distance: 4000 }] } }] });
+  } });
+  assert.equal(result.response.status, 200);
+  assert.equal(result.body.totalPrice, 15);
+  assert.deepEqual(result.body.locations, { pickup: { lat: -26.2, lon: -49.2 }, deliveries: [{ lat: -26.3, lon: -49.3 }] });
+  assert.equal(result.calls.filter(url => url.pathname === '/v1/geocode/reverse').length, 2);
+});
+
+test('rejeita coordenadas inválidas sem consumir consultas Geoapify', async () => {
+  for (const locations of [null, { pickup: { lat: '0', lon: 0 }, deliveries: [null] }, { pickup: { lat: 91, lon: 0 }, deliveries: [null] }, { deliveries: [] }]) {
+    const result = await requestQuote({ pickup: 'Coleta', deliveries: ['Local'], locations });
+    assert.equal(result.response.status, 400);
+    assert.equal(result.calls.length, 0);
+  }
+});
+
+test('ponto sem município brasileiro confirmado não recebe preço', async () => {
+  for (const metadata of [{ city: 'São Bento do Sul', country_code: 'ar' }, { country_code: 'br' }]) {
+    const result = await requestQuote({ pickup: 'Coleta', deliveries: ['Local'], locations: { pickup: { lat: -26.2, lon: -49.2 }, deliveries: [null] } }, { fetch: async url => {
+      if (url.pathname === '/v1/geocode/search') return geoapifyResponse({ results: [pointsByAddress[url.searchParams.get('text')]] });
+      assert.equal(url.pathname, '/v1/geocode/reverse');
+      return geoapifyResponse({ results: [metadata] });
+    } });
+    assert.equal(result.response.status, 422);
+    assert.equal(result.body.totalPrice, undefined);
+  }
+});
+
+test('prova assinada vincula os pontos usados no cálculo', async () => {
+  const result = await requestQuote({ pickup: 'Coleta', deliveries: ['Local'], locations: {
+    pickup: { lat: -26.2, lon: -49.2 }, deliveries: [null],
+  } }, { env: { QUOTE_SIGNING_SECRET: 'test-secret' }, fetch: async url => {
+    if (url.pathname === '/v1/geocode/search') return geoapifyResponse({ results: [pointsByAddress[url.searchParams.get('text')]] });
+    if (url.pathname === '/v1/geocode/reverse') return geoapifyResponse({ results: [{ city: 'São Bento do Sul', country_code: 'br' }] });
+    return geoapifyResponse({ features: [{ properties: { distance: 14000, legs: [{ distance: 4000 }, { distance: 6000 }, { distance: 4000 }] } }] });
+  } });
+  assert.equal(result.response.status, 200);
+  assert.deepEqual(result.body.protectedQuote.snapshot.locations, result.body.locations);
+});
+
+test('busca para orientar mapa permite resultado aproximado e não divulga chave', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async input => {
+    const url = new URL(input);
+    assert.equal(url.searchParams.get('text'), 'São Bento do Sul');
+    assert.equal(url.searchParams.get('filter'), 'countrycode:br');
+    return geoapifyResponse({ results: [{ ...pointsByAddress.Base, formatted: 'São Bento do Sul', result_type: 'city' }] });
+  };
+  try {
+    const response = await workerModule.default.fetch(new Request('https://worker.example.test/locations/search', {
+      method: 'POST', body: JSON.stringify({ text: 'São Bento do Sul' }),
+    }), { GEOAPIFY_API_KEY: 'private-key' });
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.results[0].approximate, true);
+    assert.equal(JSON.stringify(payload).includes('private-key'), false);
+  } finally { globalThis.fetch = originalFetch; }
+});

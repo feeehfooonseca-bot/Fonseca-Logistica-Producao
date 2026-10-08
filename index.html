@@ -1113,6 +1113,10 @@ main{margin:0!important;padding:0!important}
 }
 </style>
 
+<style>
+.location-controls{grid-column:1/-1;margin:-4px 0 14px;display:grid;gap:8px}.location-controls button{justify-self:start;background:transparent;border:0;padding:6px 0;color:#ddd;text-decoration:underline;cursor:pointer;font:inherit;font-size:13px}.location-controls small{color:#aaa;font-size:12px}
+.location-dialog{width:min(640px,calc(100% - 24px));max-height:90dvh;overflow:auto;background:#111;color:#eee;border:1px solid #333;border-radius:12px;padding:20px;box-sizing:border-box}.location-dialog::backdrop{background:rgba(0,0,0,.8)}.location-dialog-head{display:flex;align-items:center;justify-content:space-between;gap:16px}.location-dialog h2{font-size:22px;margin:0}.location-dialog p{font-size:14px;line-height:1.5}.location-dialog button{background:#252525;color:#fff;border:1px solid #444;border-radius:6px;padding:12px;cursor:pointer}.location-dialog button:disabled{opacity:.5;cursor:default}.location-search label{display:block;font-size:13px;margin-bottom:8px}.location-search>div{display:flex;gap:8px}.location-search input{width:100%;min-width:0;background:#1b1b1b;color:white;border:1px solid #444;border-radius:6px;padding:12px;font:inherit}.location-results{display:grid;gap:6px;margin:12px 0;max-height:150px;overflow:auto}.location-results button{text-align:left}.location-map{height:340px;background:#ddd;border-radius:8px;color:#111}.location-pin span{display:block;width:24px;height:24px;background:#c8102e;border:3px solid white;border-radius:50%;box-shadow:0 2px 8px #333}.location-dialog-actions{display:flex;gap:8px;flex-wrap:wrap}.location-dialog-actions [data-confirm]{background:#c8102e;border-color:#c8102e}.location-message{min-height:42px}@media(max-width:480px){.location-dialog{padding:14px}.location-map{height:290px}}
+</style>
 </head>
 <body id="top">
 <header class="topbar">
@@ -1378,11 +1382,13 @@ main{margin:0!important;padding:0!important}
 </script>
 <script type="module">
 import { MAX_DELIVERIES, requestOfficialQuote } from "./frontend-quote.mjs";
+import { setupLocations } from "./frontend-locations.mjs";
 
 (()=>{
  // V21.12 V1.6: frontend exibe exclusivamente o orçamento oficial retornado pelo Worker.
  const WA='554792030653';
  const $=id=>document.getElementById(id);
+ let addressRevision=0;
  let whenMode='now', invoiceMode=null, deliveryCount=1;
  const buttons=[...document.querySelectorAll('.when-btn')];
  buttons.forEach(b=>b.addEventListener('click',()=>{whenMode=b.dataset.when;buttons.forEach(x=>x.classList.toggle('active',x===b));$('scheduleFields').classList.toggle('show',whenMode==='schedule');}));
@@ -1390,15 +1396,16 @@ import { MAX_DELIVERIES, requestOfficialQuote } from "./frontend-quote.mjs";
  invoiceButtons.forEach(b=>b.addEventListener('click',()=>{invoiceMode=b.dataset.invoice;invoiceButtons.forEach(x=>x.classList.toggle('active',x===b));}));
  const today=new Date(); $('dcDate').min=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');
  function status(msg,err=false){const el=$('dcStatus');el.textContent=msg;el.classList.add('show');el.style.border=err?'1px solid rgba(200,16,46,.45)':'1px solid #242427';}
- function bindClearButtons(root=document){root.querySelectorAll('.clear-address').forEach(btn=>{if(btn.dataset.bound)return;btn.dataset.bound='1';btn.addEventListener('click',()=>{const input=$(btn.dataset.clear);if(input){input.value='';input.focus();}$('dcResult').classList.remove('show');});});}
+ const locations=setupLocations({onChange:()=>{addressRevision++;$('dcResult').classList.remove('show');$('dcWhatsapp').classList.remove('show');}});
+ function bindClearButtons(root=document){root.querySelectorAll('.clear-address').forEach(btn=>{if(btn.dataset.bound)return;btn.dataset.bound='1';btn.addEventListener('click',()=>{const input=$(btn.dataset.clear);if(input){input.value='';input.dispatchEvent(new Event('input',{bubbles:true}));input.focus();}$('dcResult').classList.remove('show');});});}
  bindClearButtons();
  function updateAddDeliveryState(){const atLimit=$('deliveryFields').querySelectorAll('.delivery-block').length>=MAX_DELIVERIES;$('addDelivery').disabled=atLimit;$('addDelivery').textContent=atLimit?`Limite de ${MAX_DELIVERIES} entregas atingido`:'+ Adicionar outra entrega';}
  function renumberDeliveries(){[...$('deliveryFields').querySelectorAll('.delivery-block')].forEach((b,i)=>{b.dataset.deliveryIndex=String(i+1);b.querySelector('.delivery-block-title').textContent=`Entrega ${i+1}`;const rm=b.querySelector('.remove-delivery');if(rm)rm.textContent=`Remover entrega ${i+1}`;});updateAddDeliveryState();}
- $('addDelivery').addEventListener('click',()=>{if($('deliveryFields').querySelectorAll('.delivery-block').length>=MAX_DELIVERIES){status(`Cada orçamento aceita no máximo ${MAX_DELIVERIES} entregas.`,true);return;}deliveryCount++;const block=document.createElement('div');block.className='delivery-block';block.dataset.deliveryIndex=String(deliveryCount);const aid=`dcDelivery${deliveryCount}`,rid=`dcDeliveryRef${deliveryCount}`;block.innerHTML=`<div class="delivery-block-head"><span class="delivery-block-title">Entrega ${deliveryCount}</span><button type="button" class="remove-delivery">Remover</button></div><div class="calc-field full address-input-wrap"><label for="${aid}">Endereço da entrega</label><input id="${aid}" class="delivery-address" autocomplete="street-address" placeholder="Rua, número, bairro, cidade"><button type="button" class="clear-address" data-clear="${aid}" aria-label="Limpar endereço da entrega">×</button></div><div class="calc-field full"><label for="${rid}">Complemento ou referência <span style="font-weight:400;color:#777">(opcional)</span></label><input id="${rid}" class="delivery-ref" placeholder="Ex.: recepção, portaria, empresa X"></div>`;block.querySelector('.remove-delivery').addEventListener('click',()=>{block.remove();renumberDeliveries();$('dcResult').classList.remove('show');});$('deliveryFields').appendChild(block);bindClearButtons(block);updateAddDeliveryState();block.querySelector('.delivery-address').focus();});
+ $('addDelivery').addEventListener('click',()=>{if($('deliveryFields').querySelectorAll('.delivery-block').length>=MAX_DELIVERIES){status(`Cada orçamento aceita no máximo ${MAX_DELIVERIES} entregas.`,true);return;}addressRevision++;deliveryCount++;const block=document.createElement('div');block.className='delivery-block';block.dataset.deliveryIndex=String(deliveryCount);const aid=`dcDelivery${deliveryCount}`,rid=`dcDeliveryRef${deliveryCount}`;block.innerHTML=`<div class="delivery-block-head"><span class="delivery-block-title">Entrega ${deliveryCount}</span><button type="button" class="remove-delivery">Remover</button></div><div class="calc-field full address-input-wrap"><label for="${aid}">Endereço da entrega</label><input id="${aid}" class="delivery-address" autocomplete="street-address" placeholder="Rua, número, bairro, cidade"><button type="button" class="clear-address" data-clear="${aid}" aria-label="Limpar endereço da entrega">×</button></div><div class="calc-field full"><label for="${rid}">Complemento ou referência <span style="font-weight:400;color:#777">(opcional)</span></label><input id="${rid}" class="delivery-ref" placeholder="Ex.: recepção, portaria, empresa X"></div>`;block.querySelector('.remove-delivery').addEventListener('click',()=>{addressRevision++;block.remove();renumberDeliveries();$('dcResult').classList.remove('show');});$('deliveryFields').appendChild(block);bindClearButtons(block);locations.bind(block);updateAddDeliveryState();block.querySelector('.delivery-address').focus();});
  updateAddDeliveryState();
  function fmtBRL(v){return Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
  function fmtWhen(){if(whenMode==='now')return'Agora';const d=$('dcDate').value,t=$('dcTime').value;if(!d||!t)throw new Error('Informe a data e o horário da coleta.');const[y,m,day]=d.split('-');return`${day}/${m}/${y} às ${t}`}
- function deliveryInputs(){return [...$('deliveryFields').querySelectorAll('.delivery-block')].map((b,i)=>({index:i+1,address:b.querySelector('.delivery-address').value.trim(),ref:b.querySelector('.delivery-ref').value.trim()}));}
+ function deliveryInputs(){return [...$('deliveryFields').querySelectorAll('.delivery-block')].map((b,i)=>({index:i+1,inputId:b.querySelector('.delivery-address').id,address:b.querySelector('.delivery-address').value.trim(),ref:b.querySelector('.delivery-ref').value.trim()}));}
  $('dcCalculate').addEventListener('click',async()=>{
    $('dcResult').classList.remove('show');$('dcWhatsapp').classList.remove('show');const calcBtn=$('dcCalculate');
    try{
@@ -1406,7 +1413,9 @@ import { MAX_DELIVERIES, requestOfficialQuote } from "./frontend-quote.mjs";
      if(!name||!pickup||!item||deliveries.some(x=>!x.address))throw new Error('Preencha nome, coleta, todas as entregas e o que será transportado.');
      if(!invoiceMode)throw new Error('Informe se precisa de Nota Fiscal.');
      const when=fmtWhen(),pref=$('dcPickupRef').value.trim();status(`Calculando ${deliveries.length} entrega${deliveries.length>1?'s':''}…`);calcBtn.disabled=true;calcBtn.textContent='Calculando rota…';
-     const quote=await requestOfficialQuote(pickup,deliveries);
+     const revision=addressRevision;
+     const quote=await requestOfficialQuote(pickup,deliveries,fetch,locations.locations(pickup,deliveries));
+     if(revision!==addressRevision)throw new Error('Os endereços foram alterados. Calcule novamente.');
      const sharedTrips=Array.isArray(quote.sharedTrips)?quote.sharedTrips:[];
      const results=deliveries.map((d,i)=>{const q=quote.deliveries[i];return{...d,...q,price:q.price===null?null:Number(q.price),km:q.distanceKm===null?null:Number(q.distanceKm),oneWayKm:q.oneWayKm===null?null:Number(q.oneWayKm)};});
      if(results.some(x=>(x.price!==null&&!Number.isFinite(x.price))||(x.km!==null&&!Number.isFinite(x.km))))throw new Error('O servidor retornou dados inválidos. Tente novamente.');
@@ -1417,7 +1426,7 @@ import { MAX_DELIVERIES, requestOfficialQuote } from "./frontend-quote.mjs";
      if(results.length>1){const row=document.createElement('div');row.className='delivery-result-row delivery-total-row';row.innerHTML='<span>Total</span>';const strong=document.createElement('strong');strong.textContent=fmtBRL(total);row.append(strong);rd.append(row);}
      $('rDistance').textContent=`${totalKm.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} km`;$('rPrice').textContent=fmtBRL(total);$('rToll').classList.remove('show');
      const diag=$('routeDiagnostic');if(diag)diag.style.display='none';
-     const lines=[`Olá! Me chamo ${name} e gostaria de solicitar uma coleta ${whenMode==='now'?'para agora':`para ${when}`}.`,'','📦 *COLETA*',`${pickup}${pref?` — ${pref}`:''}`];results.forEach(x=>{lines.push('',`📍 *ENTREGA ${x.index}*`,`${x.address}${x.ref?` — ${x.ref}`:''}`,x.price===null?'Valor: incluído na viagem compartilhada':`Valor estimado: ${fmtBRL(x.price)}`);});sharedTrips.forEach(trip=>{lines.push('','🛣️ *VIAGEM COMPARTILHADA*',`Entregas ${trip.deliveryIndexes.map(i=>i+1).join(', ')} • ${Number(trip.distanceKm).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} km`,`Valor da viagem: ${fmtBRL(trip.price)}`);});lines.push('','🛵 *TRANSPORTE*',item);if(invoiceMode==='yes')lines.push('','🧾 *NOTA FISCAL*','Preciso de Nota Fiscal');lines.push('','💰 *VALOR TOTAL ESTIMADO*',fmtBRL(total),'','Gostaria de confirmar a disponibilidade para esta coleta.');
+     const lines=[`Olá! Me chamo ${name} e gostaria de solicitar uma coleta ${whenMode==='now'?'para agora':`para ${when}`}.`,'','📦 *COLETA*',`${pickup}${pref?` — ${pref}`:''}`,...(quote.locations?[`https://www.google.com/maps?q=${quote.locations.pickup.lat},${quote.locations.pickup.lon}`]:[])];results.forEach(x=>{lines.push('',`📍 *ENTREGA ${x.index}*`,`${x.address}${x.ref?` — ${x.ref}`:''}`,...(quote.locations?[`https://www.google.com/maps?q=${quote.locations.deliveries[x.index-1].lat},${quote.locations.deliveries[x.index-1].lon}`]:[]),x.price===null?'Valor: incluído na viagem compartilhada':`Valor estimado: ${fmtBRL(x.price)}`);});sharedTrips.forEach(trip=>{lines.push('','🛣️ *VIAGEM COMPARTILHADA*',`Entregas ${trip.deliveryIndexes.map(i=>i+1).join(', ')} • ${Number(trip.distanceKm).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} km`,`Valor da viagem: ${fmtBRL(trip.price)}`);});lines.push('','🛵 *TRANSPORTE*',item);if(invoiceMode==='yes')lines.push('','🧾 *NOTA FISCAL*','Preciso de Nota Fiscal');lines.push('','💰 *VALOR TOTAL ESTIMADO*',fmtBRL(total),'','Gostaria de confirmar a disponibilidade para esta coleta.');
      $('dcWhatsapp').href=`https://wa.me/${WA}?text=${encodeURIComponent(lines.join('\n'))}`;$('dcWhatsapp').classList.add('show');$('dcResult').classList.add('show');status('Estimativa oficial calculada. Confira os dados abaixo antes de solicitar.');$('dcResult').scrollIntoView({behavior:'smooth',block:'start'});
    }catch(e){status(e.message||'Não foi possível calcular. Tente novamente.',true)}finally{calcBtn.disabled=false;calcBtn.textContent='Calcular estimativa';}
  });
@@ -1482,3 +1491,4 @@ import { MAX_DELIVERIES, requestOfficialQuote } from "./frontend-quote.mjs";
 
 </body>
 </html>
+

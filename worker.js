@@ -42,6 +42,28 @@ export default {
       if (request.method !== "GET") return json({ error: "Método não permitido." }, 405, corsHeaders);
       return verifyQuote(url.pathname.slice("/quote/verify/".length), env);
     }
+    if (url.pathname === "/locations/search") {
+      if (request.method !== "POST") return json({ error: "Método não permitido." }, 405, corsHeaders);
+      if (!env.GEOAPIFY_API_KEY) return json({ error: "Busca temporariamente indisponível." }, 503, corsHeaders);
+      try {
+        const body = await request.json();
+        const text = validAddress(body?.text);
+        if (!text) return json({ error: "Informe rua, estabelecimento ou cidade." }, 400, corsHeaders);
+        const response = await fetch("https://api.geoapify.com/v1/geocode/search?" + new URLSearchParams({
+          text, format: "json", limit: "5", filter: "countrycode:br", lang: "pt",
+          apiKey: env.GEOAPIFY_API_KEY,
+        }));
+        if (!response.ok) throw new Error("search unavailable");
+        const payload = await response.json();
+        const results = (payload.results || []).filter(validPoint).map(result => ({
+          lat: result.lat, lon: result.lon, label: result.formatted || result.address_line1 || text,
+          approximate: !isAcceptableGeocodeResult(result),
+        }));
+        return json({ results }, 200, corsHeaders);
+      } catch {
+        return json({ error: "Não foi possível buscar. Você pode marcar o ponto no mapa." }, 503, corsHeaders);
+      }
+    }
     if (url.pathname !== "/" && url.pathname !== "/quote") {
       return json({ error: "Rota não encontrada." }, 404, corsHeaders);
     }
@@ -100,6 +122,14 @@ export default {
         );
       }
 
+      const locations = body.locations;
+      if (locations !== undefined && (!locations || typeof locations !== "object" ||
+          (locations.pickup != null && !validPoint(locations.pickup)) ||
+          !Array.isArray(locations.deliveries) || locations.deliveries.length !== deliveryAddresses.length ||
+          locations.deliveries.some(point => point != null && !validPoint(point)))) {
+        return json({ error: "Localização inválida. Confirme os pontos no mapa." }, 400, corsHeaders);
+      }
+
       const geocodes = new Map();
       const geocodeOnce = (address) => {
         const key = normalizeAddressKey(address);
@@ -111,8 +141,10 @@ export default {
       const baseAddress = validAddress(env.ENDERECO_BASE);
       const [base, pickupPoint, ...deliveryPoints] = await Promise.all([
         configuredBase || geocodeOnce(baseAddress),
-        geocodeOnce(pickup),
-        ...deliveryAddresses.map(geocodeOnce),
+        locations?.pickup ? resolveSelectedPoint(locations.pickup, env.GEOAPIFY_API_KEY, telemetry) : geocodeOnce(pickup),
+        ...deliveryAddresses.map((address, index) => locations?.deliveries[index]
+          ? resolveSelectedPoint(locations.deliveries[index], env.GEOAPIFY_API_KEY, telemetry)
+          : geocodeOnce(address)),
       ]);
 
       if (!base) {
@@ -254,6 +286,10 @@ export default {
         sharedTrips.reduce((total, trip) => total + trip.price, 0);
 
       const response = { ok: true, deliveries, totalPrice };
+      if (locations) response.locations = {
+        pickup: { lat: pickupPoint.lat, lon: pickupPoint.lon },
+        deliveries: deliveryPoints.map(({ lat, lon }) => ({ lat, lon })),
+      };
       if (sharedTrips.length) response.sharedTrips = sharedTrips;
       if (!usesDeliveries) {
         const result = deliveries[0];
@@ -279,6 +315,7 @@ export default {
           totalPrice,
           totalDistanceKm: officialTotalDistance(deliveries, sharedTrips),
         };
+        if (response.locations) snapshot.locations = response.locations;
         response.protectedQuote = {
           snapshot,
           proof: await createProof(snapshot, env.QUOTE_SIGNING_SECRET, env.QUOTE_PROOF_TTL_SECONDS),
@@ -588,7 +625,7 @@ async function geocode(address, apiKey, telemetry) {
     new URLSearchParams({
       text: address,
       format: "json",
-      limit: "1",
+      limit: "5",
       filter: "countrycode:br",
       apiKey,
     });
@@ -596,7 +633,7 @@ async function geocode(address, apiKey, telemetry) {
   if (!response.ok) throw new Error(`Erro Geoapify geocode: ${response.status}`);
 
   const payload = await response.json();
-  const result = payload?.results?.[0];
+  const result = payload?.results?.find(isAcceptableGeocodeResult);
   if (!isAcceptableGeocodeResult(result)) return null;
   const point = {
     lat: Number(result.lat),
@@ -658,6 +695,23 @@ function isAcceptableGeocodeResult(result) {
   return true;
 }
 
+async function resolveSelectedPoint(point, apiKey, telemetry) {
+  // The client selects coordinates; locality and pricing classification remain server-owned.
+  telemetry.geocodingCalls += 1;
+  const response = await fetch("https://api.geoapify.com/v1/geocode/reverse?" + new URLSearchParams({
+    lat: String(point.lat), lon: String(point.lon), format: "json", limit: "1", lang: "pt", apiKey,
+  }));
+  if (!response.ok) throw new Error("reverse geocode unavailable");
+  const result = (await response.json())?.results?.[0];
+  const city = result?.city || result?.municipality;
+  if (result?.country_code !== "br" || typeof city !== "string" || !city.trim()) return null;
+  return {
+    lat: point.lat, lon: point.lon, city,
+    localities: [result.suburb, result.district, result.neighbourhood, result.quarter,
+      result.village, result.hamlet].filter(value => typeof value === "string" && value.trim()),
+  };
+}
+
 function validPoint(point) {
   return Number.isFinite(point?.lat) && Number.isFinite(point?.lon) &&
     point.lat >= -90 && point.lat <= 90 && point.lon >= -180 && point.lon <= 180;
@@ -716,3 +770,4 @@ function json(data, status, corsHeaders) {
     },
   });
 }
+

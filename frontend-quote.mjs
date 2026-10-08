@@ -1,7 +1,7 @@
 export const ROUTE_API = "https://fonseca-logistica-api.fonsecalogistica047.workers.dev";
 export const MAX_DELIVERIES = 20;
 
-export async function requestOfficialQuote(pickup, deliveries, fetchImpl = fetch) {
+export async function requestOfficialQuote(pickup, deliveries, fetchImpl = fetch, locations) {
   if (!Array.isArray(deliveries) || deliveries.length > MAX_DELIVERIES) {
     throw new Error(`Cada orçamento aceita no máximo ${MAX_DELIVERIES} entregas.`);
   }
@@ -11,7 +11,8 @@ export async function requestOfficialQuote(pickup, deliveries, fetchImpl = fetch
     response = await fetchImpl(ROUTE_API, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pickup, deliveries: deliveries.map(({ address }) => address) }),
+      body: JSON.stringify({ pickup, deliveries: deliveries.map(({ address }) => address),
+        ...(locations ? { locations } : {}) }),
     });
   } catch {
     throw new Error("Não foi possível conectar ao serviço de orçamento. Tente novamente.");
@@ -30,6 +31,21 @@ export async function requestOfficialQuote(pickup, deliveries, fetchImpl = fetch
         ? quote.error
         : "Não foi possível localizar os endereços e calcular a rota.",
     );
+  }
+
+  if (locations) {
+    const validPoint = point => Number.isFinite(point?.lat) && Number.isFinite(point?.lon) &&
+      Math.abs(point.lat) <= 90 && Math.abs(point.lon) <= 180;
+    const samePoint = (actual, selected) => !selected ||
+      (actual.lat === selected.lat && actual.lon === selected.lon);
+    if (!validPoint(quote.locations?.pickup) ||
+        !Array.isArray(quote.locations?.deliveries) ||
+        quote.locations.deliveries.length !== deliveries.length ||
+        !quote.locations.deliveries.every(validPoint) ||
+        !samePoint(quote.locations.pickup, locations.pickup) ||
+        !quote.locations.deliveries.every((point, index) => samePoint(point, locations.deliveries[index]))) {
+      throw new Error("O serviço não confirmou os pontos marcados. Não foi gerada uma estimativa para essas localizações.");
+    }
   }
 
   const sharedTrips = quote.sharedTrips === undefined ? [] : quote.sharedTrips;
@@ -110,3 +126,4 @@ export async function requestOfficialQuote(pickup, deliveries, fetchImpl = fetch
 
   return quote;
 }
+
