@@ -8,6 +8,7 @@ export function startInputDiagnostics() {
   const output = panel.querySelector('pre');
   const started = performance.now();
   const lines = [];
+  const revisions = new WeakMap();
   function record(line) {
     lines.push(`${((performance.now() - started) / 1000).toFixed(1)}s ${line}`);
     if (lines.length > 25) lines.shift();
@@ -26,8 +27,10 @@ export function startInputDiagnostics() {
         record(`${name(el)} ${type} ${event.inputType || ''} n=${el.value.length} foco=${document.activeElement === el} cancelado=${event.defaultPrevented} composição=${Boolean(event.isComposing)}`);
         if (type === 'input') {
           const length = el.value.length;
+          const revision = (revisions.get(el) || 0) + 1;
+          revisions.set(el, revision);
           setTimeout(() => {
-            if (el.isConnected && el.value.length !== length) record(`${name(el)} mudou depois do evento: n=${el.value.length}`);
+            if (el.isConnected && revisions.get(el) === revision && el.value.length !== length) record(`${name(el)} mudou depois do evento: n=${el.value.length}`);
           }, 100);
         }
       });
