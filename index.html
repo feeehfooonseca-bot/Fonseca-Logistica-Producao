@@ -1381,6 +1381,12 @@ main{margin:0!important;padding:0!important}
 })();
 </script>
 <script type="module">
+if (new URLSearchParams(location.search).get("diagnostico") === "1") {
+  const { startInputDiagnostics } = await import("./input-diagnostics.mjs");
+  startInputDiagnostics();
+}
+</script>
+<script type="module">
 import { MAX_DELIVERIES, requestOfficialQuote } from "./frontend-quote.mjs";
 import { setupLocations } from "./frontend-locations.mjs";
 
