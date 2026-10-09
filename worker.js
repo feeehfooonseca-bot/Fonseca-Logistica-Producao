@@ -472,13 +472,12 @@ function validateDetails(value = {}) {
   const result = {
     name: limited(data.name, 120), pickupRef: limited(data.pickupRef, 200), item: limited(data.item, 200),
     scheduledAt: limited(data.scheduledAt, 40), source: limited(data.source, 40), deliveryRefs,
-    timingMode, invoiceRequired,
+    timingMode: typeof timingMode === "string" ? timingMode : null,
+    invoiceRequired: typeof invoiceRequired === "boolean" ? invoiceRequired : null,
   };
   if (Object.values(result).includes(undefined) || !Array.isArray(deliveryRefs) || deliveryRefs.length > MAX_DELIVERIES ||
       deliveryRefs.some((item) => typeof item !== "string" || limited(item, 200) === undefined) ||
-      (result.source && !/^[A-Za-z0-9._-]+$/.test(result.source)) ||
-      ![null, "now", "scheduled"].includes(result.timingMode) ||
-      ![null, true, false].includes(result.invoiceRequired)) return null;
+      (result.source && !/^[A-Za-z0-9._-]+$/.test(result.source))) return null;
   result.deliveryRefs = deliveryRefs.map((item) => item.trim());
   return result;
 }
