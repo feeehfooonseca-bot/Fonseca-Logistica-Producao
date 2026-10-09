@@ -456,14 +456,23 @@ function validSnapshot(value) {
     typeof value.totalDistanceKm === "number" && Number.isFinite(value.totalDistanceKm) && value.totalDistanceKm >= 0;
 }
 
+/** @param {unknown} value */
 function validateDetails(value = {}) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const data = /** @type {{deliveryRefs?: unknown, name?: unknown, pickupRef?: unknown,
+    item?: unknown, scheduledAt?: unknown, source?: unknown,
+    timingMode?: unknown, invoiceRequired?: unknown}} */ (value);
   const limited = (input, max) => input == null ? null : typeof input === "string" && input.trim().length <= max ? input.trim() : undefined;
-  const deliveryRefs = value.deliveryRefs ?? [];
+  const deliveryRefs = data.deliveryRefs ?? [];
+  const timingMode = data.timingMode ?? null;
+  const invoiceRequired = data.invoiceRequired ?? null;
+  if (timingMode !== null && timingMode !== "now" && timingMode !== "scheduled") return null;
+  if (invoiceRequired !== null && typeof invoiceRequired !== "boolean") return null;
+  if (!Array.isArray(deliveryRefs)) return null;
   const result = {
-    name: limited(value.name, 120), pickupRef: limited(value.pickupRef, 200), item: limited(value.item, 200),
-    scheduledAt: limited(value.scheduledAt, 40), source: limited(value.source, 40), deliveryRefs,
-    timingMode: value.timingMode ?? null, invoiceRequired: value.invoiceRequired ?? null,
+    name: limited(data.name, 120), pickupRef: limited(data.pickupRef, 200), item: limited(data.item, 200),
+    scheduledAt: limited(data.scheduledAt, 40), source: limited(data.source, 40), deliveryRefs,
+    timingMode, invoiceRequired,
   };
   if (Object.values(result).includes(undefined) || !Array.isArray(deliveryRefs) || deliveryRefs.length > MAX_DELIVERIES ||
       deliveryRefs.some((item) => typeof item !== "string" || limited(item, 200) === undefined) ||
@@ -508,10 +517,10 @@ function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g, (cha
 function secureHtmlHeaders() { return { "Content-Type": "text/html; charset=UTF-8", "Cache-Control": "no-store", "Content-Security-Policy": "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'", "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Referrer-Policy": "no-referrer" }; }
 
 export function calculatePrice({
-  deliveryAddress,
+  deliveryAddress = "",
   deliveryLocalities = [],
   isOutsideSBS,
-  oneWayKm,
+  oneWayKm = NaN,
   totalKm,
 }) {
   let rawPrice;
@@ -595,7 +604,9 @@ function readBaseCoordinates(env) {
 }
 
 async function geocode(address, apiKey, telemetry) {
-  const cache = globalThis.caches?.default;
+  // Cloudflare supplies caches.default; other JS runtimes may omit this extension.
+  const cacheStorage = /** @type {{default?: Cache} | undefined} */ (Reflect.get(globalThis, "caches"));
+  const cache = cacheStorage?.default;
   let cacheRequest = null;
   if (cache) {
     try {
