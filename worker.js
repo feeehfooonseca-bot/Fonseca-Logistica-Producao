@@ -44,22 +44,50 @@ export default {
     }
     if (url.pathname === "/locations/search") {
       if (request.method !== "POST") return json({ error: "Método não permitido." }, 405, corsHeaders);
-      if (!env.GEOAPIFY_API_KEY) return json({ error: "Busca temporariamente indisponível." }, 503, corsHeaders);
       try {
         const body = await request.json();
         const text = validAddress(body?.text);
         if (!text) return json({ error: "Informe rua, estabelecimento ou cidade." }, 400, corsHeaders);
-        const response = await fetch("https://api.geoapify.com/v1/geocode/search?" + new URLSearchParams({
+        const provider = body?.provider || "geoapify";
+        if (!["geoapify", "tomtom"].includes(provider)) return json({ error: "Fonte de busca inválida." }, 400, corsHeaders);
+        if (provider === "tomtom") {
+          if (!env.TOMTOM_API_KEY) return json({ error: "Teste TomTom ainda não ativado. Use a busca atual por enquanto." }, 503, corsHeaders);
+          const searchBody = {
+            query: text, maxResults: 5,
+            filters: { types: ["poi", "address", "street", "intersection", "area"], countryCodesIso2: ["BR"] },
+            ...(validPoint(body.center) ? { preferences: { geometry: { type: "point", coordinates: [body.center.lon, body.center.lat] } } } : {}),
+          };
+          const response = await fetch("https://api.tomtom.com/maps/orbis/places/discover", {
+            method: "POST", headers: {
+              "TomTom-Api-Key": env.TOMTOM_API_KEY, "TomTom-Api-Version": "3",
+              "Attributes": "results(position,title,subtitles,type,address.countryCodeIso2)",
+              "Content-Type": "application/json", "Accept-Language": "pt-BR",
+            }, body: JSON.stringify(searchBody), signal: AbortSignal.timeout(10000),
+          });
+          if (!response.ok) throw new Error("search unavailable");
+          const payload = await response.json();
+          const results = (Array.isArray(payload.results) ? payload.results : []).flatMap(result => {
+            const coordinates = result.position?.coordinates;
+            const point = { lat: coordinates?.[1], lon: coordinates?.[0] };
+            if (result.address?.countryCodeIso2 !== "BR" || !validPoint(point)) return [];
+            const label = [result.title, ...(Array.isArray(result.subtitles) ? result.subtitles : [])].filter(value => typeof value === "string" && value.trim()).join(", ");
+            return [{ ...point, label: label || text, approximate: result.type === "area" || result.type === "street" }];
+          }).slice(0, 5);
+          return json({ provider, results }, 200, corsHeaders);
+        }
+        if (!env.GEOAPIFY_API_KEY) return json({ error: "Busca temporariamente indisponível." }, 503, corsHeaders);
+        const response = await fetch("https://api.geoapify.com/v1/geocode/autocomplete?" + new URLSearchParams({
           text, format: "json", limit: "5", filter: "countrycode:br", lang: "pt",
+          ...(validPoint(body.center) ? { bias: `proximity:${body.center.lon},${body.center.lat}` } : {}),
           apiKey: env.GEOAPIFY_API_KEY,
-        }));
+        }), { signal: AbortSignal.timeout(10000) });
         if (!response.ok) throw new Error("search unavailable");
         const payload = await response.json();
-        const results = (payload.results || []).filter(validPoint).map(result => ({
+        const results = (Array.isArray(payload.results) ? payload.results : []).filter(validPoint).map(result => ({
           lat: result.lat, lon: result.lon, label: result.formatted || result.address_line1 || text,
           approximate: !isAcceptableGeocodeResult(result),
         }));
-        return json({ results }, 200, corsHeaders);
+        return json({ provider, results }, 200, corsHeaders);
       } catch {
         return json({ error: "Não foi possível buscar. Você pode marcar o ponto no mapa." }, 503, corsHeaders);
       }

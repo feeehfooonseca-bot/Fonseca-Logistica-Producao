@@ -33,9 +33,9 @@ export function setupLocations({ onChange }) {
   const dialog = document.createElement('dialog');
   dialog.className = 'location-dialog';
   dialog.innerHTML = `<div class="location-dialog-head"><h2 id="locationTitle">Confirmar localização</h2><button type="button" data-close aria-label="Fechar mapa">×</button></div>
-    <p>Toque no mapa para marcar o local exato. Amplie para conferir a entrada.</p>
-    <form class="location-search"><label for="locationQuery">Buscar rua, estabelecimento ou cidade</label><div><input id="locationQuery" placeholder="Ex.: rua e cidade"><button type="submit">Buscar</button></div></form>
-    <div class="location-results"></div><div class="location-map" aria-label="Mapa para selecionar localização"></div>
+    <p>Busque um local e mova o mapa até o pino ficar sobre a entrada. Depois confirme o ponto.</p>
+    <form class="location-search"><label for="locationQuery">Buscar rua, estabelecimento ou cidade</label><div><input id="locationQuery" placeholder="Ex.: bairro e cidade, rua ou estabelecimento" autocomplete="off"><button type="submit">Buscar</button></div><label for="locationProvider">Fonte da busca</label><select id="locationProvider"><option value="geoapify">Busca atual (Geoapify)</option><option value="tomtom">Testar TomTom</option></select></form>
+    <div class="location-results"></div><div class="location-map-wrap"><div class="location-map" aria-label="Mova o mapa para ajustar a localização"></div><span class="location-center-pin" aria-hidden="true">📍</span></div><small class="location-attribution">Busca: <a href="https://www.geoapify.com/" target="_blank" rel="noopener">Geoapify</a> / TomTom. Confira o ponto antes de confirmar.</small>
     <p class="location-message" role="status" aria-live="polite"></p>
     <div class="location-dialog-actions"><button type="button" data-gps>Usar minha localização</button><button type="button" data-confirm disabled>Confirmar ponto</button></div>`;
   dialog.setAttribute('aria-labelledby', 'locationTitle'); document.body.append(dialog);
@@ -47,23 +47,25 @@ export function setupLocations({ onChange }) {
   const searchButton = form.querySelector('button');
   const query = dialog.querySelector('input');
   const results = dialog.querySelector('.location-results');
-  let map, marker, activeInput, activeNote, selected, L, generation = 0, searchAbort;
-  const icon = () => L.divIcon({ className: 'location-pin', html: '<span></span>', iconSize: [24, 24], iconAnchor: [12, 12] });
+  const provider = dialog.querySelector('select');
+  const centerPin = dialog.querySelector('.location-center-pin');
+  let map, activeInput, activeNote, selected, L, generation = 0, searchAbort, searchTimer;
   function select(lat, lon) {
     selected = { lat, lon }; confirm.disabled = false;
-    if (marker) marker.setLatLng([lat, lon]);
-    else marker = L.marker([lat, lon], { icon: icon() }).addTo(map);
-    message.textContent = 'Ponto marcado. Confira o local antes de confirmar.';
+    centerPin.hidden = false;
+    message.textContent = 'Confira a entrada sob o pino e confirme o ponto.';
   }
+  function cancelSearch() { clearTimeout(searchTimer); searchAbort?.abort(); }
   dialog.querySelector('[data-close]').onclick = () => dialog.close();
-  dialog.addEventListener('close', () => { generation++; searchAbort?.abort(); gps.disabled = false; activeInput?.focus(); });
-  form.onsubmit = async event => {
-    event.preventDefault(); const text = query.value.trim(); if (text.length < 3) { message.textContent = 'Informe rua e cidade para buscar.'; return; }
+  dialog.addEventListener('close', () => { generation++; cancelSearch(); gps.disabled = false; activeInput?.focus(); });
+  async function search() {
+    if (!map || !dialog.open || searchButton.disabled) return;
+    cancelSearch(); const text = query.value.trim(); if (text.length < 3) { message.textContent = 'Informe rua e cidade para buscar.'; return; }
     searchAbort?.abort(); searchAbort = new AbortController();
     const signal = searchAbort.signal, current = generation;
     results.replaceChildren(); message.textContent = 'Buscando…';
     try {
-      const response = await fetch(`${ROUTE_API}/locations/search`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }), signal });
+      const response = await fetch(`${ROUTE_API}/locations/search`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, provider: provider.value, center: { lat: map.getCenter().lat, lon: map.getCenter().lng } }), signal });
       const payload = await response.json();
       if (signal.aborted || current !== generation || !dialog.open) return;
       if (!response.ok) throw new Error(payload.error || 'Busca indisponível. Marque o ponto diretamente no mapa.');
@@ -71,22 +73,31 @@ export function setupLocations({ onChange }) {
         const button = document.createElement('button'); button.type = 'button';
         button.textContent = result.label + (result.approximate ? ' — localização aproximada' : '');
         button.onclick = () => {
-          map.setView([result.lat, result.lon], result.approximate ? 14 : 17);
-          // Search results guide the map; only an explicit map click confirms the delivery point.
-          selected = null; confirm.disabled = true; if (marker) { marker.remove(); marker = null; }
-          message.textContent = 'Toque no local exato no mapa para marcar o ponto.';
+          map.setView([result.lat, result.lon], result.approximate ? 14 : 17, { animate: false });
+          select(result.lat, result.lon);
+          results.replaceChildren();
+          message.textContent = 'Mova o mapa para ajustar a entrada sob o pino. Depois confirme.';
         }; results.append(button);
       }
-      message.textContent = results.childElementCount ? 'Escolha um resultado e marque o ponto exato no mapa.' : 'Endereço não encontrado. Navegue no mapa e marque o local.';
+      message.textContent = results.childElementCount ? 'Escolha um resultado para abrir o local no mapa.' : 'Endereço não encontrado. Navegue no mapa e marque o local.';
     } catch (error) { if (!signal.aborted && current === generation) message.textContent = error.message; }
-  };
+  }
+  form.onsubmit = event => { event.preventDefault(); search(); };
+  query.addEventListener('input', () => {
+    cancelSearch(); results.replaceChildren();
+    if (provider.value === 'geoapify' && query.value.trim().length >= 5) searchTimer = setTimeout(search, 800);
+  });
+  provider.addEventListener('change', () => {
+    cancelSearch(); results.replaceChildren();
+    message.textContent = provider.value === 'tomtom' ? 'Digite bairro e cidade ou estabelecimento e pressione Buscar para testar TomTom.' : 'Digite para buscar sugestões ou pressione Buscar.';
+  });
   gps.onclick = () => {
     if (!navigator.geolocation) { message.textContent = 'Localização indisponível. Marque o ponto no mapa.'; return; }
     const current = generation; gps.disabled = true; message.textContent = 'Obtendo sua localização…';
     navigator.geolocation.getCurrentPosition(position => {
       if (current !== generation || !dialog.open) return;
       gps.disabled = false;
-      map.setView([position.coords.latitude, position.coords.longitude], 17);
+      map.setView([position.coords.latitude, position.coords.longitude], 17, { animate: false });
       select(position.coords.latitude, position.coords.longitude);
       message.textContent = `Localização recebida (precisão aproximada de ${Math.ceil(position.coords.accuracy)} m). Ajuste o ponto no mapa se necessário.`;
     }, () => {
@@ -102,7 +113,7 @@ export function setupLocations({ onChange }) {
     onChange(); dialog.close();
   };
   async function open(input, note) {
-    activeInput = input; activeNote = note; generation++; selected = null; confirm.disabled = true; gps.disabled = true; searchButton.disabled = true;
+    activeInput = input; activeNote = note; generation++; cancelSearch(); selected = null; centerPin.hidden = true; confirm.disabled = true; gps.disabled = true; searchButton.disabled = true;
     const current = generation;
     results.replaceChildren(); query.value = input.value.trim(); message.textContent = 'Carregando mapa…';
     dialog.showModal();
@@ -113,7 +124,12 @@ export function setupLocations({ onChange }) {
         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
           maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
         }).addTo(map);
-        map.on('click', event => select(event.latlng.lat, event.latlng.lng));
+        map.on('click', event => { map.panTo(event.latlng, { animate: false }); select(event.latlng.lat, event.latlng.lng); });
+        map.on('movestart', () => { selected = null; confirm.disabled = true; });
+        map.on('moveend', () => {
+          if (!dialog.open) return;
+          const center = map.getCenter(); select(center.lat, center.lng);
+        });
         mapEl.addEventListener('keydown', event => {
           if (event.key === 'Enter') { event.preventDefault(); const center = map.getCenter(); select(center.lat, center.lng); }
         });
@@ -121,11 +137,11 @@ export function setupLocations({ onChange }) {
       map.invalidateSize();
       gps.disabled = false;
       searchButton.disabled = false;
-      if (marker) { marker.remove(); marker = null; }
       const previous = state.get(input.id, input.value.trim());
-      map.setView(previous ? [previous.lat, previous.lon] : [-26.25, -49.38], previous ? 17 : 13);
+      map.setView(previous ? [previous.lat, previous.lon] : [-26.25, -49.38], previous ? 17 : 13, { animate: false });
       if (previous) select(previous.lat, previous.lon);
-      else message.textContent = 'Busque uma rua ou cidade, ou toque no mapa para marcar o local.';
+      else { selected = null; confirm.disabled = true; centerPin.hidden = true; message.textContent = 'Busque bairro e cidade, rua ou estabelecimento, ou mova o mapa para posicionar o pino.'; }
+      if (!previous && query.value.trim().length >= 5 && provider.value === 'geoapify') searchTimer = setTimeout(search, 800);
     } catch (error) { if (current === generation) message.textContent = error.message; }
   }
   function bind(root = document) {

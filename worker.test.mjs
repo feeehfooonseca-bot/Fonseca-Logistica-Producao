@@ -1330,6 +1330,7 @@ test('busca para orientar mapa permite resultado aproximado e não divulga chave
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async input => {
     const url = new URL(input);
+    assert.equal(url.pathname, '/v1/geocode/autocomplete');
     assert.equal(url.searchParams.get('text'), 'São Bento do Sul');
     assert.equal(url.searchParams.get('filter'), 'countrycode:br');
     return geoapifyResponse({ results: [{ ...pointsByAddress.Base, formatted: 'São Bento do Sul', result_type: 'city' }] });
@@ -1342,5 +1343,64 @@ test('busca para orientar mapa permite resultado aproximado e não divulga chave
     const payload = await response.json();
     assert.equal(payload.results[0].approximate, true);
     assert.equal(JSON.stringify(payload).includes('private-key'), false);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+
+test('TomTom resolve estabelecimento e bairro, filtra país e coordenadas e protege a chave', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, 'https://api.tomtom.com/maps/orbis/places/discover');
+    assert.equal(options.headers['TomTom-Api-Key'], 'private-tomtom');
+    assert.equal(options.headers['TomTom-Api-Version'], '3');
+    const body = JSON.parse(options.body);
+    assert.deepEqual(body.filters.countryCodesIso2, ['BR']);
+    assert.deepEqual(body.preferences.geometry.coordinates, [-49.38, -26.25]);
+    return geoapifyResponse({ results: [
+      { title: 'Mercado', subtitles: ['Centro', 'São Bento do Sul'], type: 'poi', address: { countryCodeIso2: 'BR' }, position: { coordinates: [-49.3, -26.2] } },
+      { title: 'Centro', type: 'area', address: { countryCodeIso2: 'BR' }, position: { coordinates: [-49.4, -26.3] } },
+      { title: 'Exterior', address: { countryCodeIso2: 'DE' }, position: { coordinates: [13, 54] } },
+      { title: 'Inválido', address: { countryCodeIso2: 'BR' }, position: { coordinates: [-49, 'invalid'] } },
+    ] });
+  };
+  try {
+    const response = await workerModule.default.fetch(new Request('https://worker.example.test/locations/search', {
+      method: 'POST', body: JSON.stringify({ text: 'Mercado São Bento do Sul', provider: 'tomtom', center: { lat: -26.25, lon: -49.38 } }),
+    }), { TOMTOM_API_KEY: 'private-tomtom' });
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.provider, 'tomtom');
+    assert.deepEqual(payload.results, [
+      { lat: -26.2, lon: -49.3, label: 'Mercado, Centro, São Bento do Sul', approximate: false },
+      { lat: -26.3, lon: -49.4, label: 'Centro', approximate: true },
+    ]);
+    assert.equal(JSON.stringify(payload).includes('private-tomtom'), false);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('busca rejeita provedor desconhecido e TomTom sem chave sem consultar API', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => { assert.fail('não deve consultar API'); };
+  try {
+    for (const [provider, status] of [['unknown', 400], ['tomtom', 503]]) {
+      const response = await workerModule.default.fetch(new Request('https://worker.example.test/locations/search', {
+        method: 'POST', body: JSON.stringify({ text: 'São Bento do Sul', provider }),
+      }), { GEOAPIFY_API_KEY: 'private-key' });
+      assert.equal(response.status, status);
+    }
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('erro TomTom não expõe mensagem interna nem substitui silenciosamente a fonte', async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => { calls++; return new Response('private-key error', { status: 429 }); };
+  try {
+    const response = await workerModule.default.fetch(new Request('https://worker.example.test/locations/search', {
+      method: 'POST', body: JSON.stringify({ text: 'São Bento do Sul', provider: 'tomtom' }),
+    }), { TOMTOM_API_KEY: 'private-key', GEOAPIFY_API_KEY: 'other-key' });
+    assert.equal(response.status, 503);
+    assert.equal(calls, 1);
+    assert.equal((await response.text()).includes('private-key'), false);
   } finally { globalThis.fetch = originalFetch; }
 });
