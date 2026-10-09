@@ -37,3 +37,11 @@ Ainda é necessária verificação visual e funcional em navegador real e no Clo
 O teste usa TomTom Orbis Places **Discover v3**, para consultas completas no botão Buscar. Não usa Discover para sugestões enquanto digita: a API própria para isso é Suggest, que exige resolução posterior. A documentação consultada lista 5.000 consultas Discover gratuitas por mês; conferir a cota no painel da conta. O mapa permanece OpenStreetMap e as rotas e preços continuam no fluxo Geoapify. Sem chave ou em erro, a interface informa a indisponibilidade e permite escolher a busca atual. Não há fallback oculto entre fontes.
 
 Referências: https://docs.tomtom.com/places-search-api/documentation/places-search/discover ; https://docs.tomtom.com/pricing ; https://apidocs.geoapify.com/docs/geocoding/address-autocomplete/ . Testes automatizados usam respostas simuladas; a comparação real depende da chave e de testes no navegador.
+
+## Fluxo em duas etapas
+
+A primeira etapa pede apenas os endereços de coleta e entrega e apresenta a estimativa oficial. A segunda pede nome, agendamento, complementos, item e Nota Fiscal. O envio preserva a prova assinada e o registro `/quote/submit`, incluindo links para os pontos confirmados no mapa. Alterar os endereços ou pontos invalida o orçamento; IDs de entrega são estáveis ao remover e adicionar destinos. Referências são preservadas por ID, não pela posição anterior.
+
+Diagnóstico temporário de teclado e página de teste removidos. Validação atual: 165 testes de Worker, frontend e locais aprovados. Scripts verificados com `node --check`.
+
+A prévia estável é https://fix-enderecos-confirmacao-ma.fonseca-logistica-producao.pages.dev . Para testar chamadas no navegador, esse endereço precisa constar em `ALLOWED_ORIGINS` do Worker, sem barra final, preservando as origens existentes. A origem de cada deploy avulso não precisa ser adicionada quando se usa a prévia estável.

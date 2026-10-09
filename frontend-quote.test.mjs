@@ -286,3 +286,21 @@ test("rejeita grupo compartilhado adulterado ou total incompatível", async (t) 
     });
   }
 });
+
+
+test('segunda etapa registra a prova assinada junto aos dados e às referências', async () => {
+  const { submitProtectedQuote } = await import('./frontend-quote.mjs');
+  const protectedQuote={proof:'signed-proof',snapshot:{totalPrice:25,locations:{pickup:{lat:-26,lon:-49}}}};
+  const details={name:'Teste',item:'Documento',deliveryRefs:['Portaria'],timingMode:'now',invoiceRequired:false};
+  const result=await submitProtectedQuote({protectedQuote},details,async(url,options)=>{
+    assert.equal(url,ROUTE_API+'/quote/submit');
+    assert.deepEqual(JSON.parse(options.body),{...protectedQuote,details});
+    return Response.json({ok:true,code:'TESTE',verificationUrl:ROUTE_API+'/quote/verify/TESTE',expiresAt:'2026-10-10T00:00:00Z'});
+  });
+  assert.equal(result.code,'TESTE');
+});
+
+test('segunda etapa impede envio sem prova assinada', async () => {
+  const { submitProtectedQuote } = await import('./frontend-quote.mjs');
+  await assert.rejects(submitProtectedQuote({}, {}, ()=>{throw Error('Não deve consultar API');}),/Calcule novamente/);
+});
