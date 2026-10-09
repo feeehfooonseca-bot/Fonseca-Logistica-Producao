@@ -36,6 +36,6 @@
 
 `node --test --test-skip-pattern='HTML local' worker.test.mjs frontend-quote.test.mjs frontend-locations.test.mjs security.test.mjs`
 
-179 testes aprovados antes da publicação de revisão. SQLite real verificou a consulta de limite (10 permitidas em 50 tentativas, nova janela reinicia). Scripts verificados com node --check. `refresh-csp.mjs` precisa rodar após editar scripts inline do index; teste falha se hashes estiverem desatualizados.
+180 testes aprovados antes da publicação de revisão. SQLite real verificou a consulta de limite (10 permitidas em 50 tentativas, nova janela reinicia). Scripts verificados com node --check. `refresh-csp.mjs` precisa rodar após editar scripts inline do index; teste falha se hashes estiverem desatualizados.
 
 O HTML legado de ~7,6 MB continua não baixado/testado e está bloqueado na publicação. Turnstile real, D1 remoto, configuração Meta e limites operacionais requerem a configuração acima. Não confundir teste simulado com ativação em produção.

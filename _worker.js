@@ -24,7 +24,7 @@ export default {
     const isPage=['/','/index.html','/frete'].includes(path);
     const publicAsset=path.startsWith('/assets/')&&!path.includes('..')&&!path.includes('\\')&&/\.(?:png|jpe?g|webp|avif|gif|svg|ico|woff2?|mp4)$/i.test(path);
     if(!isPage&&!PUBLIC_MODULES.has(path)&&!publicAsset&&!['/robots.txt','/sitemap.xml','/favicon.ico'].includes(path))return new Response('Não encontrado',{status:404,headers:{...secure,'Cache-Control':'no-store'}});
-    const assetUrl=new URL(request.url);if(isPage)assetUrl.pathname='/index.html';
+    const assetUrl=new URL(request.url);if(isPage)assetUrl.pathname='/';
     const response=await env.ASSETS.fetch(new Request(assetUrl,request));
     const result=new Response(response.body,response);for(const [key,value]of Object.entries(secure))result.headers.set(key,value);
     if(isPage||PUBLIC_MODULES.has(path))result.headers.set('Cache-Control','no-cache');

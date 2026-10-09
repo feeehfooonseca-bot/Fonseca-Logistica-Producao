@@ -99,3 +99,10 @@ test('pixel dispara PageView e Lead uma vez e nunca envia os detalhes pessoais',
   assert(!JSON.stringify(calls).includes('private-'));
  }finally{for(const [key,value]of Object.entries(saved)){if(value===undefined)delete globalThis[key];else globalThis[key]=value;}}
 });
+
+test('rotas da calculadora usam a raiz dos assets sem ciclo de redirecionamento HTML do Pages',async()=>{
+ const env={ASSETS:{fetch(request){const url=new URL(request.url);assert.equal(url.pathname,'/');return new Response('page',{headers:{'Content-Type':'text/html'}});}}};
+ for(const path of ['/','/frete','/index.html']){
+  const r=await pages.fetch(new Request('https://fonsecalog.com.br'+path),env);assert.equal(r.status,200);assert.equal(r.headers.get('Location'),null);
+ }
+});
