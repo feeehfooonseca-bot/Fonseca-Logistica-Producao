@@ -1113,6 +1113,13 @@ main{margin:0!important;padding:0!important}
 }
 </style>
 
+<style>
+.location-controls{grid-column:1/-1;margin:-4px 0 14px;display:grid;gap:8px}.location-controls button{justify-self:start;background:transparent;border:0;padding:6px 0;color:#ddd;text-decoration:underline;cursor:pointer;font:inherit;font-size:13px}.location-controls small{color:#aaa;font-size:12px}
+.location-dialog{width:min(640px,calc(100% - 24px));max-height:90dvh;overflow:auto;background:#111;color:#eee;border:1px solid #333;border-radius:12px;padding:20px;box-sizing:border-box}.location-dialog::backdrop{background:rgba(0,0,0,.8)}.location-dialog-head{display:flex;align-items:center;justify-content:space-between;gap:16px}.location-dialog h2{font-size:22px;margin:0}.location-dialog p{font-size:14px;line-height:1.5}.location-dialog button{background:#252525;color:#fff;border:1px solid #444;border-radius:6px;padding:12px;cursor:pointer}.location-dialog button:disabled{opacity:.5;cursor:default}.location-search label{display:block;font-size:13px;margin-bottom:8px}.location-search>div{display:flex;gap:8px}.location-search input{width:100%;min-width:0;background:#1b1b1b;color:white;border:1px solid #444;border-radius:6px;padding:12px;font:inherit}.location-results{display:grid;gap:6px;margin:12px 0;max-height:150px;overflow:auto}.location-results button{text-align:left}.location-map{height:340px;background:#ddd;border-radius:8px;color:#111}.location-pin span{display:block;width:24px;height:24px;background:#c8102e;border:3px solid white;border-radius:50%;box-shadow:0 2px 8px #333}.location-dialog-actions{display:flex;gap:8px;flex-wrap:wrap}.location-dialog-actions [data-confirm]{background:#c8102e;border-color:#c8102e}.location-message{min-height:42px}.location-map-wrap{position:relative}.location-center-pin{position:absolute;z-index:500;left:50%;top:50%;transform:translate(-50%,-100%);font-size:32px;line-height:1;pointer-events:none;filter:drop-shadow(0 2px 2px #555)}.location-center-pin[hidden]{display:none}.location-search select{background:#1b1b1b;color:#fff;border:1px solid #444;padding:8px;border-radius:6px}.location-search label[for="locationProvider"]{margin-top:10px}.location-attribution{display:block;margin-top:8px}.location-attribution a{color:inherit}@media(max-width:480px){.location-dialog{padding:14px}.location-map{height:290px}}
+</style>
+<style>[hidden]{display:none!important}</style>
+<style>.quote-step-confirm[hidden]{display:none!important}.quote-step-quick{padding-bottom:4px}.quote-step-quick .calc-section-title{margin-bottom:20px}.quote-step-quick .calc-grid{gap:0!important}.quote-step-quick .calc-field{margin-bottom:18px}.quick-result{margin-top:24px}.quick-price{font-size:clamp(42px,9vw,68px);line-height:1;font-weight:900;letter-spacing:-2px;color:#fff;margin:4px 0 14px}.quick-distance{color:#aaa;font-size:14px;margin-bottom:18px}.quick-distance strong{color:#fff}.quick-delivery-summary,.shared-trip-summary{display:grid;gap:7px}.quick-delivery-line,.quick-shared-line{padding:10px 0;border-top:1px solid rgba(255,255,255,.08);font-size:13px;color:#b9b9bd}.quick-shared-line{color:#ddd}.quote-continue{margin-top:22px;width:100%;font-size:14px;min-height:54px}.quote-edit{display:block;margin:13px auto 0;border:0;background:none;color:#8f8f95;font:inherit;font-size:12px;font-weight:700;cursor:pointer}.quote-edit:hover{color:#fff}.quote-step-confirm{margin-top:4px}.quote-step-confirm .calc-section-title{margin-bottom:18px}.quote-step-confirm .calc-field+.calc-field{margin-top:18px}.request-summary{margin-top:28px;padding:20px;border:1px solid #303034;border-radius:16px;background:#0a0a0b}.request-summary .calc-section-title{margin-bottom:8px}.summary-line{display:flex;justify-content:space-between;gap:18px;padding:12px 0;border-top:1px solid rgba(255,255,255,.08);font-size:13px}.summary-line span{color:#8f8f95}.summary-line strong{text-align:right;color:#fff}.summary-line small{color:#999;font-weight:400}.quote-step-confirm .calc-action{margin-top:22px}.delivery-ref-field{margin-top:18px!important}@media(max-width:680px){.quick-price{font-size:48px}.summary-line{align-items:flex-start;flex-direction:column;gap:4px}.summary-line strong{text-align:left}.quote-continue{min-height:58px}}</style>
+<style>.access-dialog{max-width:420px;background:#111;color:#eee;border:1px solid #444;padding:24px}.access-dialog::backdrop{background:#0009}.access-dialog button,.privacy-choice button{padding:12px;border:1px solid #555;background:#202023;color:#fff;cursor:pointer}.privacy-choice{position:fixed;bottom:12px;left:12px;right:12px;z-index:10000;max-width:550px;margin:auto;padding:18px;background:#161618;color:#eee;border:1px solid #555;box-shadow:0 8px 30px #0008}.privacy-choice p{margin-bottom:12px;font-size:14px}.privacy-choice button+button{margin-left:10px}.privacy-preferences{display:block;margin:15px auto;padding:8px;background:none;border:0;color:#bbb;text-decoration:underline;cursor:pointer}</style>
 </head>
 <body id="top">
 <header class="topbar">
@@ -1272,67 +1279,19 @@ main{margin:0!important;padding:0!important}
 </section>
 </main>
 <section class="calc-section" id="calcular-rota">
-<div class="wrap">
-<p class="eyebrow">SOLICITE SUA COLETA</p>
-<h2>Precisa de uma entrega?<br/><span class="calc-title-accent">Calcule sua rota.</span></h2>
-<p class="copy calc-intro">Informe os dados da coleta e da entrega. Você confere a estimativa antes de enviar a solicitação.</p>
-<div class="calc-shell">
-<div class="calc-grid">
-<div class="calc-section">
-<p class="calc-section-title">Dados da solicitação</p>
-<div class="calc-field full"><label for="dcName">Seu nome</label><input autocomplete="name" id="dcName" placeholder="Ex.: João Silva"/></div>
-<div class="calc-field full"><label>Quando deseja a coleta?</label><div class="when-switch"><button class="when-btn active" data-when="now" type="button">Agora</button><button class="when-btn" data-when="schedule" type="button">Agendar</button></div></div>
-<div class="calc-field full"><div class="schedule-fields" id="scheduleFields"><div class="calc-field"><label for="dcDate">Data</label><input id="dcDate" type="date"/></div><div class="calc-field"><label for="dcTime">Horário</label><input id="dcTime" type="time"/></div></div></div>
-</div>
-<div class="calc-section">
-<p class="calc-section-title">Coleta</p>
-<div class="calc-field full address-input-wrap"><label for="dcPickup">Endereço da coleta</label><input autocomplete="street-address" id="dcPickup" placeholder="Rua, número, bairro, cidade"/><button aria-label="Limpar endereço da coleta" class="clear-address" data-clear="dcPickup" type="button">×</button></div>
-<div class="calc-field full"><label for="dcPickupRef">Complemento ou referência <span style="font-weight:400;color:#777">(opcional)</span></label><input id="dcPickupRef" placeholder="Ex.: fundos, sala 2, próximo ao mercado"/></div>
-</div>
-<div class="calc-section">
-<p class="calc-section-title">Entrega</p>
-<div id="deliveryFields">
-<div class="delivery-block" data-delivery-index="1">
-<div class="delivery-block-head"><span class="delivery-block-title">Entrega 1</span></div>
-<div class="calc-field full address-input-wrap"><label for="dcDelivery">Endereço da entrega</label><input autocomplete="street-address" class="delivery-address" id="dcDelivery" placeholder="Rua, número, bairro, cidade"/><button aria-label="Limpar endereço da entrega" class="clear-address" data-clear="dcDelivery" type="button">×</button></div>
-<div class="calc-field full"><label for="dcDeliveryRef">Complemento ou referência <span style="font-weight:400;color:#777">(opcional)</span></label><input class="delivery-ref" id="dcDeliveryRef" placeholder="Ex.: recepção, portaria, empresa X"/></div>
-</div>
-</div>
-<button class="add-delivery" id="addDelivery" type="button">+ Adicionar outra entrega</button>
-</div>
-<div class="calc-section">
-<p class="calc-section-title">Serviço</p>
-<div class="calc-field full"><label for="dcItem">O que será transportado?</label><input id="dcItem" placeholder="Ex.: documentos, pacote, peça"/></div>
-<div class="calc-field full"><label>Precisa de Nota Fiscal?</label><div class="invoice-switch"><button class="invoice-btn" data-invoice="yes" type="button">Sim</button><button class="invoice-btn" data-invoice="no" type="button">Não</button></div></div>
-</div>
-</div>
-<button class="btn primary calc-action" id="dcCalculate" type="button">Calcular estimativa</button>
-<div class="calc-status" id="dcStatus" role="status"></div>
-<div class="calc-result" id="dcResult">
-<p class="result-title">Confira sua solicitação</p>
-<p class="result-subtitle">Revise os dados antes de solicitar a coleta pelo WhatsApp.</p>
-<div class="result-group"><span class="result-group-label">Solicitação</span><div class="result-main" id="rName"></div><span class="result-secondary" id="rWhen"></span></div>
-<div class="result-group"><span class="result-group-label">Coleta</span><div class="result-main" id="rPickup"></div><span class="result-secondary" id="rPickupRef"></span></div>
-<div class="result-group"><span class="result-group-label">Entrega(s)</span><div class="delivery-results" id="rDeliveries"></div></div>
-<div class="result-group"><span class="result-group-label">Transporte</span><div class="result-main" id="rItem"></div><div class="result-invoice-card" id="rInvoiceRow">🧾 Precisa de Nota Fiscal</div></div>
-<div class="result-metrics"><div class="result-metric"><span>Distância total dos circuitos</span><strong id="rDistance"></strong></div><div class="result-metric price"><span>Valor total estimado</span><strong id="rPrice"></strong></div></div>
-<div id="routeDiagnostic" style="display:none;margin-top:14px;padding:14px 16px;border:1px dashed #444;border-radius:14px;background:#0b0b0d;color:#aaa;font-size:13px;line-height:1.7">
-<strong style="display:block;color:#fff;margin-bottom:6px;letter-spacing:.08em">DIAGNÓSTICO DE ROTA</strong>
-<div id="diagShort"></div>
-<div id="diagBalanced"></div>
-<div id="diagUsed"></div>
-<div id="diagMunicipality"></div>
-<div id="diagMode"></div>
-</div>
-<div class="toll-alert" id="rToll">⚠️ Esta rota possui pedágio. O valor do pedágio será confirmado no atendimento.</div>
-<p class="calc-note">Estimativa sujeita à confirmação de disponibilidade e a condições específicas da operação, como espera, volume especial ou pedágio.</p>
-<a class="btn primary whatsapp-request" id="dcWhatsapp" rel="noopener" target="_blank">Solicitar coleta pelo WhatsApp</a>
-</div>
-<div class="calc-test-note">Calculadora em fase de teste • V21.12 V1.6 • Orçamento oficial pelo servidor</div>
-</div>
-</div>
-</section>
-<footer class="footer-premium-v12" id="contato">
+<div class="wrap"><p class="eyebrow">ORÇAMENTO RÁPIDO</p><h2>CALCULE SUA ENTREGA</h2><p class="copy calc-intro">Informe a coleta e a entrega para saber o valor.</p>
+<div class="calc-shell" id="quoteApp">
+<div class="quote-step quote-step-quick" id="quoteStepQuick"><p class="calc-section-title">1 · ORÇAMENTO RÁPIDO</p>
+<div class="calc-grid"><div class="calc-field full address-input-wrap"><label for="dcPickup">Endereço da coleta</label><input autocomplete="street-address" id="dcPickup" placeholder="Rua, número, bairro, cidade"/><button aria-label="Limpar endereço da coleta" class="clear-address" data-clear="dcPickup" type="button">×</button></div></div>
+<div id="deliveryFields"><div class="delivery-block" data-delivery-index="1"><div class="delivery-block-head"><span class="delivery-block-title">Entrega 1</span></div><div class="calc-field full address-input-wrap"><label for="dcDelivery">Endereço da entrega</label><input autocomplete="street-address" class="delivery-address" id="dcDelivery" placeholder="Rua, número, bairro, cidade"/><button aria-label="Limpar endereço da entrega" class="clear-address" data-clear="dcDelivery" type="button">×</button></div></div></div>
+<button class="add-delivery" id="addDelivery" type="button">+ Adicionar outra entrega</button><button class="btn primary calc-action" id="dcCalculate" type="button">CALCULAR VALOR</button><div class="calc-status" id="dcStatus" role="status"></div></div>
+<div class="calc-result quick-result" id="dcResult"><p class="result-title">SUA ENTREGA</p><div class="quick-price" id="rPrice">R$ 0,00</div><div class="quick-distance">Distância do percurso: <strong id="rDistance"></strong></div><div class="quick-delivery-summary" id="rDeliveries"></div><div class="shared-trip-summary" id="rSharedTrips"></div><button class="btn primary quote-continue" id="requestQuoteBtn" type="button">SOLICITAR ESTA ENTREGA</button><button class="quote-edit" id="editAddressesBtn" type="button">Alterar endereços</button><p class="calc-note">Estimativa oficial calculada pelo servidor.</p></div>
+<div class="quote-step quote-step-confirm" id="quoteStepConfirm" hidden><p class="calc-section-title">2 · DADOS DA SOLICITAÇÃO</p>
+<div class="calc-grid"><div class="calc-field full"><label for="dcName">Seu nome</label><input autocomplete="name" id="dcName" placeholder="Ex.: João Silva"/></div><div class="calc-field full"><label>Quando deseja a coleta?</label><div class="when-switch"><button class="when-btn active" data-when="now" type="button">AGORA</button><button class="when-btn" data-when="schedule" type="button">AGENDAR</button></div></div><div class="calc-field full"><div class="schedule-fields" id="scheduleFields"><div class="calc-field"><label for="dcDate">Data</label><input id="dcDate" type="date"/></div><div class="calc-field"><label for="dcTime">Horário</label><input id="dcTime" type="time"/></div></div></div>
+<div class="calc-field full"><label for="dcPickupRef">Complemento da coleta <span style="font-weight:400;color:#777">(opcional)</span></label><input id="dcPickupRef" placeholder="Ex.: fundos, sala 2, portaria"/></div><div class="calc-field full" id="deliveryRefsFields"></div><div class="calc-field full"><label for="dcItem">O que será transportado?</label><input id="dcItem" placeholder="Ex.: documentos, pacote, peça"/></div><div class="calc-field full"><label>Precisa de Nota Fiscal?</label><div class="invoice-switch"><button class="invoice-btn" data-invoice="yes" type="button">SIM</button><button class="invoice-btn" data-invoice="no" type="button">NÃO</button></div></div></div>
+<div class="request-summary" id="requestSummary"><p class="calc-section-title">RESUMO DA SOLICITAÇÃO</p><div class="summary-line"><span>Coleta</span><strong id="summaryPickup"></strong></div><div class="summary-line" id="summaryPickupRefRow"><span>Complemento</span><strong id="summaryPickupRef"></strong></div><div id="summaryDeliveries"></div><div class="summary-line"><span>Valor</span><strong id="summaryPrice"></strong></div><div class="summary-line"><span>Horário</span><strong id="summaryWhen"></strong></div></div>
+<button class="btn primary calc-action" id="dcConfirm" type="button">CONFIRMAR PELO WHATSAPP</button><button class="quote-edit" id="backToQuoteBtn" type="button">Voltar para o orçamento</button><a class="whatsapp-request" id="dcWhatsapp" rel="noopener" target="_blank" hidden></a><div class="calc-status" id="dcConfirmStatus" role="status"></div></div>
+<div class="calc-test-note">Calculadora em fase de teste • Orçamento oficial pelo servidor</div></div></div></section><footer class="footer-premium-v12" id="contato">
 <div class="footer-v12-wrap">
 <div class="footer-v12-brand"><img alt="Fonseca Logística" decoding="async" height="626" loading="lazy" src="assets/images/image-18-7c18469d.png" width="1047"/><p>A extensão logística da sua empresa.</p></div>
 <div class="footer-v12-grid">
@@ -1376,53 +1335,7 @@ main{margin:0!important;padding:0!important}
  }
 })();
 </script>
-<script type="module">
-import { MAX_DELIVERIES, requestOfficialQuote } from "./frontend-quote.mjs";
-
-(()=>{
- // V21.12 V1.6: frontend exibe exclusivamente o orçamento oficial retornado pelo Worker.
- const WA='554792030653';
- const $=id=>document.getElementById(id);
- let whenMode='now', invoiceMode=null, deliveryCount=1;
- const buttons=[...document.querySelectorAll('.when-btn')];
- buttons.forEach(b=>b.addEventListener('click',()=>{whenMode=b.dataset.when;buttons.forEach(x=>x.classList.toggle('active',x===b));$('scheduleFields').classList.toggle('show',whenMode==='schedule');}));
- const invoiceButtons=[...document.querySelectorAll('.invoice-btn')];
- invoiceButtons.forEach(b=>b.addEventListener('click',()=>{invoiceMode=b.dataset.invoice;invoiceButtons.forEach(x=>x.classList.toggle('active',x===b));}));
- const today=new Date(); $('dcDate').min=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');
- function status(msg,err=false){const el=$('dcStatus');el.textContent=msg;el.classList.add('show');el.style.border=err?'1px solid rgba(200,16,46,.45)':'1px solid #242427';}
- function bindClearButtons(root=document){root.querySelectorAll('.clear-address').forEach(btn=>{if(btn.dataset.bound)return;btn.dataset.bound='1';btn.addEventListener('click',()=>{const input=$(btn.dataset.clear);if(input){input.value='';input.focus();}$('dcResult').classList.remove('show');});});}
- bindClearButtons();
- function updateAddDeliveryState(){const atLimit=$('deliveryFields').querySelectorAll('.delivery-block').length>=MAX_DELIVERIES;$('addDelivery').disabled=atLimit;$('addDelivery').textContent=atLimit?`Limite de ${MAX_DELIVERIES} entregas atingido`:'+ Adicionar outra entrega';}
- function renumberDeliveries(){[...$('deliveryFields').querySelectorAll('.delivery-block')].forEach((b,i)=>{b.dataset.deliveryIndex=String(i+1);b.querySelector('.delivery-block-title').textContent=`Entrega ${i+1}`;const rm=b.querySelector('.remove-delivery');if(rm)rm.textContent=`Remover entrega ${i+1}`;});updateAddDeliveryState();}
- $('addDelivery').addEventListener('click',()=>{if($('deliveryFields').querySelectorAll('.delivery-block').length>=MAX_DELIVERIES){status(`Cada orçamento aceita no máximo ${MAX_DELIVERIES} entregas.`,true);return;}deliveryCount++;const block=document.createElement('div');block.className='delivery-block';block.dataset.deliveryIndex=String(deliveryCount);const aid=`dcDelivery${deliveryCount}`,rid=`dcDeliveryRef${deliveryCount}`;block.innerHTML=`<div class="delivery-block-head"><span class="delivery-block-title">Entrega ${deliveryCount}</span><button type="button" class="remove-delivery">Remover</button></div><div class="calc-field full address-input-wrap"><label for="${aid}">Endereço da entrega</label><input id="${aid}" class="delivery-address" autocomplete="street-address" placeholder="Rua, número, bairro, cidade"><button type="button" class="clear-address" data-clear="${aid}" aria-label="Limpar endereço da entrega">×</button></div><div class="calc-field full"><label for="${rid}">Complemento ou referência <span style="font-weight:400;color:#777">(opcional)</span></label><input id="${rid}" class="delivery-ref" placeholder="Ex.: recepção, portaria, empresa X"></div>`;block.querySelector('.remove-delivery').addEventListener('click',()=>{block.remove();renumberDeliveries();$('dcResult').classList.remove('show');});$('deliveryFields').appendChild(block);bindClearButtons(block);updateAddDeliveryState();block.querySelector('.delivery-address').focus();});
- updateAddDeliveryState();
- function fmtBRL(v){return Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
- function fmtWhen(){if(whenMode==='now')return'Agora';const d=$('dcDate').value,t=$('dcTime').value;if(!d||!t)throw new Error('Informe a data e o horário da coleta.');const[y,m,day]=d.split('-');return`${day}/${m}/${y} às ${t}`}
- function deliveryInputs(){return [...$('deliveryFields').querySelectorAll('.delivery-block')].map((b,i)=>({index:i+1,address:b.querySelector('.delivery-address').value.trim(),ref:b.querySelector('.delivery-ref').value.trim()}));}
- $('dcCalculate').addEventListener('click',async()=>{
-   $('dcResult').classList.remove('show');$('dcWhatsapp').classList.remove('show');const calcBtn=$('dcCalculate');
-   try{
-     const name=$('dcName').value.trim(),pickup=$('dcPickup').value.trim(),item=$('dcItem').value.trim(),deliveries=deliveryInputs();
-     if(!name||!pickup||!item||deliveries.some(x=>!x.address))throw new Error('Preencha nome, coleta, todas as entregas e o que será transportado.');
-     if(!invoiceMode)throw new Error('Informe se precisa de Nota Fiscal.');
-     const when=fmtWhen(),pref=$('dcPickupRef').value.trim();status(`Calculando ${deliveries.length} entrega${deliveries.length>1?'s':''}…`);calcBtn.disabled=true;calcBtn.textContent='Calculando rota…';
-     const quote=await requestOfficialQuote(pickup,deliveries);
-     const sharedTrips=Array.isArray(quote.sharedTrips)?quote.sharedTrips:[];
-     const results=deliveries.map((d,i)=>{const q=quote.deliveries[i];return{...d,...q,price:q.price===null?null:Number(q.price),km:q.distanceKm===null?null:Number(q.distanceKm),oneWayKm:q.oneWayKm===null?null:Number(q.oneWayKm)};});
-     if(results.some(x=>(x.price!==null&&!Number.isFinite(x.price))||(x.km!==null&&!Number.isFinite(x.km))))throw new Error('O servidor retornou dados inválidos. Tente novamente.');
-     const total=Number(quote.totalPrice),totalKm=results.reduce((a,x)=>a+(x.km===null?0:x.km),0)+sharedTrips.reduce((a,x)=>a+Number(x.distanceKm),0);
-     $('rName').textContent=name;$('rWhen').textContent=whenMode==='now'?'Coleta para agora':`Agendada para ${when}`;$('rPickup').textContent=pickup;$('rPickupRef').textContent=pref||'';$('rPickupRef').style.display=pref?'block':'none';$('rItem').textContent=item;$('rInvoiceRow').classList.toggle('show',invoiceMode==='yes');
-     const rd=$('rDeliveries');rd.innerHTML='';results.forEach(x=>{const row=document.createElement('div');row.className='delivery-result-row';const left=document.createElement('span');left.textContent=`Entrega ${x.index} — ${x.address}`;const right=document.createElement('strong');right.textContent=x.price===null?'Incluída na viagem compartilhada':fmtBRL(x.price);row.append(left,right);rd.append(row);});
-     sharedTrips.forEach(trip=>{const row=document.createElement('div');row.className='delivery-result-row';const left=document.createElement('span');left.textContent=`Viagem compartilhada — entregas ${trip.deliveryIndexes.map(i=>i+1).join(', ')}`;const right=document.createElement('strong');right.textContent=fmtBRL(trip.price);row.append(left,right);rd.append(row);});
-     if(results.length>1){const row=document.createElement('div');row.className='delivery-result-row delivery-total-row';row.innerHTML='<span>Total</span>';const strong=document.createElement('strong');strong.textContent=fmtBRL(total);row.append(strong);rd.append(row);}
-     $('rDistance').textContent=`${totalKm.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} km`;$('rPrice').textContent=fmtBRL(total);$('rToll').classList.remove('show');
-     const diag=$('routeDiagnostic');if(diag)diag.style.display='none';
-     const lines=[`Olá! Me chamo ${name} e gostaria de solicitar uma coleta ${whenMode==='now'?'para agora':`para ${when}`}.`,'','📦 *COLETA*',`${pickup}${pref?` — ${pref}`:''}`];results.forEach(x=>{lines.push('',`📍 *ENTREGA ${x.index}*`,`${x.address}${x.ref?` — ${x.ref}`:''}`,x.price===null?'Valor: incluído na viagem compartilhada':`Valor estimado: ${fmtBRL(x.price)}`);});sharedTrips.forEach(trip=>{lines.push('','🛣️ *VIAGEM COMPARTILHADA*',`Entregas ${trip.deliveryIndexes.map(i=>i+1).join(', ')} • ${Number(trip.distanceKm).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} km`,`Valor da viagem: ${fmtBRL(trip.price)}`);});lines.push('','🛵 *TRANSPORTE*',item);if(invoiceMode==='yes')lines.push('','🧾 *NOTA FISCAL*','Preciso de Nota Fiscal');lines.push('','💰 *VALOR TOTAL ESTIMADO*',fmtBRL(total),'','Gostaria de confirmar a disponibilidade para esta coleta.');
-     $('dcWhatsapp').href=`https://wa.me/${WA}?text=${encodeURIComponent(lines.join('\n'))}`;$('dcWhatsapp').classList.add('show');$('dcResult').classList.add('show');status('Estimativa oficial calculada. Confira os dados abaixo antes de solicitar.');$('dcResult').scrollIntoView({behavior:'smooth',block:'start'});
-   }catch(e){status(e.message||'Não foi possível calcular. Tente novamente.',true)}finally{calcBtn.disabled=false;calcBtn.textContent='Calcular estimativa';}
- });
-})();
-</script>
+<script type="module" src="/calculator.mjs"></script>
 <script>
 (function(){
  const strip=document.querySelector('.route-strip');
@@ -1482,3 +1395,4 @@ import { MAX_DELIVERIES, requestOfficialQuote } from "./frontend-quote.mjs";
 
 </body>
 </html>
+

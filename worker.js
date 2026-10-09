@@ -22,6 +22,13 @@ const SPECIAL_REGIONS = [
 ];
 
 export default {
+  async scheduled(_event, env, ctx) {
+    if (!env.QUOTE_DB) return;
+    ctx.waitUntil((async()=>{
+      await env.QUOTE_DB.prepare("DELETE FROM abuse_counters WHERE expires_at < ?").bind(Math.floor(Date.now()/1000)).run();
+      await env.QUOTE_DB.prepare("DELETE FROM protected_quotes WHERE expires_at < ?").bind(new Date(Date.now()-72*3600000).toISOString()).run();
+    })());
+  },
   async fetch(request, env) {
     const url = new URL(request.url);
     const corsHeaders = corsHeadersFor(request.headers.get("Origin"), env.ALLOWED_ORIGINS);
@@ -31,8 +38,18 @@ export default {
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: {
         ...corsHeaders, "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type", "Access-Control-Max-Age": "86400",
+        "Access-Control-Allow-Headers": "Content-Type, X-Fonseca-Session", "Access-Control-Max-Age": "86400",
       } });
+    }
+    const knownPost = ["/", "/quote", "/quote/submit", "/locations/search", "/security/session"].includes(url.pathname);
+    const verifyRead = url.pathname.startsWith("/quote/verify/") && request.method === "GET";
+    if ((knownPost && request.method === "POST") || verifyRead) {
+      const denied = await abuseGuard(request, env, corsHeaders, verifyRead);
+      if (denied) return denied;
+    }
+    if (url.pathname === "/security/session") {
+      if (request.method !== "POST") return json({ error: "Método não permitido." }, 405, corsHeaders);
+      return issueBrowserSession(request, env, corsHeaders);
     }
     if (url.pathname === "/quote/submit") {
       if (request.method !== "POST") return json({ error: "Método não permitido." }, 405, corsHeaders);
@@ -41,6 +58,56 @@ export default {
     if (url.pathname.startsWith("/quote/verify/")) {
       if (request.method !== "GET") return json({ error: "Método não permitido." }, 405, corsHeaders);
       return verifyQuote(url.pathname.slice("/quote/verify/".length), env);
+    }
+    if (url.pathname === "/locations/search") {
+      if (request.method !== "POST") return json({ error: "Método não permitido." }, 405, corsHeaders);
+      try {
+        const body = await readBoundedJson(request);
+        const text = validAddress(body?.text);
+        if (!text) return json({ error: "Informe rua, estabelecimento ou cidade." }, 400, corsHeaders);
+        const provider = body?.provider || "geoapify";
+        if (!["geoapify", "tomtom"].includes(provider)) return json({ error: "Fonte de busca inválida." }, 400, corsHeaders);
+        if (provider === "tomtom") {
+          if (!env.TOMTOM_API_KEY) return json({ error: "Teste TomTom ainda não ativado. Use a busca atual por enquanto." }, 503, corsHeaders);
+          const searchBody = {
+            query: text, maxResults: 5,
+            filters: { types: ["poi", "address", "street", "intersection", "area"], countryCodesIso2: ["BR"] },
+            ...(validPoint(body.center) ? { preferences: { geometry: { type: "point", coordinates: [body.center.lon, body.center.lat] } } } : {}),
+          };
+          const response = await fetch("https://api.tomtom.com/maps/orbis/places/discover", {
+            method: "POST", headers: {
+              "TomTom-Api-Key": env.TOMTOM_API_KEY, "TomTom-Api-Version": "3",
+              "Attributes": "results(position,title,subtitles,type,address.countryCodeIso2)",
+              "Content-Type": "application/json", "Accept-Language": "pt-BR",
+            }, body: JSON.stringify(searchBody), signal: AbortSignal.timeout(10000),
+          });
+          if (!response.ok) throw new Error("search unavailable");
+          const payload = await response.json();
+          const results = (Array.isArray(payload.results) ? payload.results : []).flatMap(result => {
+            const coordinates = result.position?.coordinates;
+            const point = { lat: coordinates?.[1], lon: coordinates?.[0] };
+            if (result.address?.countryCodeIso2 !== "BR" || !validPoint(point)) return [];
+            const label = [result.title, ...(Array.isArray(result.subtitles) ? result.subtitles : [])].filter(value => typeof value === "string" && value.trim()).join(", ");
+            return [{ ...point, label: label || text, approximate: result.type === "area" || result.type === "street" }];
+          }).slice(0, 5);
+          return json({ provider, results }, 200, corsHeaders);
+        }
+        if (!env.GEOAPIFY_API_KEY) return json({ error: "Busca temporariamente indisponível." }, 503, corsHeaders);
+        const response = await fetch("https://api.geoapify.com/v1/geocode/autocomplete?" + new URLSearchParams({
+          text, format: "json", limit: "5", filter: "countrycode:br", lang: "pt",
+          ...(validPoint(body.center) ? { bias: `proximity:${body.center.lon},${body.center.lat}` } : {}),
+          apiKey: env.GEOAPIFY_API_KEY,
+        }), { signal: AbortSignal.timeout(10000) });
+        if (!response.ok) throw new Error("search unavailable");
+        const payload = await response.json();
+        const results = (Array.isArray(payload.results) ? payload.results : []).filter(validPoint).map(result => ({
+          lat: result.lat, lon: result.lon, label: result.formatted || result.address_line1 || text,
+          approximate: !isAcceptableGeocodeResult(result),
+        }));
+        return json({ provider, results }, 200, corsHeaders);
+      } catch {
+        return json({ error: "Não foi possível buscar. Você pode marcar o ponto no mapa." }, 503, corsHeaders);
+      }
     }
     if (url.pathname !== "/" && url.pathname !== "/quote") {
       return json({ error: "Rota não encontrada." }, 404, corsHeaders);
@@ -71,7 +138,7 @@ export default {
 
       let body;
       try {
-        body = await request.json();
+        body = await readBoundedJson(request);
       } catch {
         return json({ error: "JSON inválido." }, 400, corsHeaders);
       }
@@ -100,6 +167,14 @@ export default {
         );
       }
 
+      const locations = body.locations;
+      if (locations !== undefined && (!locations || typeof locations !== "object" ||
+          (locations.pickup != null && !validPoint(locations.pickup)) ||
+          !Array.isArray(locations.deliveries) || locations.deliveries.length !== deliveryAddresses.length ||
+          locations.deliveries.some(point => point != null && !validPoint(point)))) {
+        return json({ error: "Localização inválida. Confirme os pontos no mapa." }, 400, corsHeaders);
+      }
+
       const geocodes = new Map();
       const geocodeOnce = (address) => {
         const key = normalizeAddressKey(address);
@@ -111,8 +186,10 @@ export default {
       const baseAddress = validAddress(env.ENDERECO_BASE);
       const [base, pickupPoint, ...deliveryPoints] = await Promise.all([
         configuredBase || geocodeOnce(baseAddress),
-        geocodeOnce(pickup),
-        ...deliveryAddresses.map(geocodeOnce),
+        locations?.pickup ? resolveSelectedPoint(locations.pickup, env.GEOAPIFY_API_KEY, telemetry) : geocodeOnce(pickup),
+        ...deliveryAddresses.map((address, index) => locations?.deliveries[index]
+          ? resolveSelectedPoint(locations.deliveries[index], env.GEOAPIFY_API_KEY, telemetry)
+          : geocodeOnce(address)),
       ]);
 
       if (!base) {
@@ -254,6 +331,10 @@ export default {
         sharedTrips.reduce((total, trip) => total + trip.price, 0);
 
       const response = { ok: true, deliveries, totalPrice };
+      if (locations) response.locations = {
+        pickup: { lat: pickupPoint.lat, lon: pickupPoint.lon },
+        deliveries: deliveryPoints.map(({ lat, lon }) => ({ lat, lon })),
+      };
       if (sharedTrips.length) response.sharedTrips = sharedTrips;
       if (!usesDeliveries) {
         const result = deliveries[0];
@@ -279,6 +360,7 @@ export default {
           totalPrice,
           totalDistanceKm: officialTotalDistance(deliveries, sharedTrips),
         };
+        if (response.locations) snapshot.locations = response.locations;
         response.protectedQuote = {
           snapshot,
           proof: await createProof(snapshot, env.QUOTE_SIGNING_SECRET, env.QUOTE_PROOF_TTL_SECONDS),
@@ -318,7 +400,7 @@ async function submitQuote(request, env, corsHeaders) {
   if (!env.QUOTE_SIGNING_SECRET) return json({ error: "Confirmação protegida indisponível." }, 503, corsHeaders);
   if (!env.QUOTE_DB) return json({ error: "Armazenamento de orçamento indisponível." }, 503, corsHeaders);
   let body;
-  try { body = await request.json(); } catch { return json({ error: "JSON inválido." }, 400, corsHeaders); }
+  try { body = await readBoundedJson(request); } catch { return json({ error: "JSON inválido." }, 400, corsHeaders); }
   const proof = body?.proof;
   const snapshot = body?.snapshot;
   if (!validProofShape(proof) || !validSnapshot(snapshot)) return json({ error: "Prova de orçamento inválida." }, 400, corsHeaders);
@@ -419,20 +501,28 @@ function validSnapshot(value) {
     typeof value.totalDistanceKm === "number" && Number.isFinite(value.totalDistanceKm) && value.totalDistanceKm >= 0;
 }
 
+/** @param {unknown} value */
 function validateDetails(value = {}) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const data = /** @type {{deliveryRefs?: unknown, name?: unknown, pickupRef?: unknown,
+    item?: unknown, scheduledAt?: unknown, source?: unknown,
+    timingMode?: unknown, invoiceRequired?: unknown}} */ (value);
   const limited = (input, max) => input == null ? null : typeof input === "string" && input.trim().length <= max ? input.trim() : undefined;
-  const deliveryRefs = value.deliveryRefs ?? [];
+  const deliveryRefs = data.deliveryRefs ?? [];
+  const timingMode = data.timingMode ?? null;
+  const invoiceRequired = data.invoiceRequired ?? null;
+  if (timingMode !== null && timingMode !== "now" && timingMode !== "scheduled") return null;
+  if (invoiceRequired !== null && typeof invoiceRequired !== "boolean") return null;
+  if (!Array.isArray(deliveryRefs)) return null;
   const result = {
-    name: limited(value.name, 120), pickupRef: limited(value.pickupRef, 200), item: limited(value.item, 200),
-    scheduledAt: limited(value.scheduledAt, 40), source: limited(value.source, 40), deliveryRefs,
-    timingMode: value.timingMode ?? null, invoiceRequired: value.invoiceRequired ?? null,
+    name: limited(data.name, 120), pickupRef: limited(data.pickupRef, 200), item: limited(data.item, 200),
+    scheduledAt: limited(data.scheduledAt, 40), source: limited(data.source, 40), deliveryRefs,
+    timingMode: typeof timingMode === "string" ? timingMode : null,
+    invoiceRequired: typeof invoiceRequired === "boolean" ? invoiceRequired : null,
   };
   if (Object.values(result).includes(undefined) || !Array.isArray(deliveryRefs) || deliveryRefs.length > MAX_DELIVERIES ||
       deliveryRefs.some((item) => typeof item !== "string" || limited(item, 200) === undefined) ||
-      (result.source && !/^[A-Za-z0-9._-]+$/.test(result.source)) ||
-      ![null, "now", "scheduled"].includes(result.timingMode) ||
-      ![null, true, false].includes(result.invoiceRequired)) return null;
+      (result.source && !/^[A-Za-z0-9._-]+$/.test(result.source))) return null;
   result.deliveryRefs = deliveryRefs.map((item) => item.trim());
   return result;
 }
@@ -471,10 +561,10 @@ function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g, (cha
 function secureHtmlHeaders() { return { "Content-Type": "text/html; charset=UTF-8", "Cache-Control": "no-store", "Content-Security-Policy": "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'", "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Referrer-Policy": "no-referrer" }; }
 
 export function calculatePrice({
-  deliveryAddress,
+  deliveryAddress = "",
   deliveryLocalities = [],
   isOutsideSBS,
-  oneWayKm,
+  oneWayKm = NaN,
   totalKm,
 }) {
   let rawPrice;
@@ -496,7 +586,7 @@ export function calculatePrice({
 }
 
 function validAddress(value) {
-  return typeof value === "string" && value.trim() ? value.trim() : null;
+  return typeof value === "string" && value.trim() && value.length <= 500 && !/[\u0000-\u001f\u007f]/.test(value) ? value.trim() : null;
 }
 
 function corsHeadersFor(origin, configuredOrigins) {
@@ -558,7 +648,9 @@ function readBaseCoordinates(env) {
 }
 
 async function geocode(address, apiKey, telemetry) {
-  const cache = globalThis.caches?.default;
+  // Cloudflare supplies caches.default; other JS runtimes may omit this extension.
+  const cacheStorage = /** @type {{default?: Cache} | undefined} */ (Reflect.get(globalThis, "caches"));
+  const cache = cacheStorage?.default;
   let cacheRequest = null;
   if (cache) {
     try {
@@ -588,15 +680,15 @@ async function geocode(address, apiKey, telemetry) {
     new URLSearchParams({
       text: address,
       format: "json",
-      limit: "1",
+      limit: "5",
       filter: "countrycode:br",
       apiKey,
     });
-  const response = await fetch(url);
+  const response = await fetch(url, { signal: AbortSignal.timeout(12000) });
   if (!response.ok) throw new Error(`Erro Geoapify geocode: ${response.status}`);
 
   const payload = await response.json();
-  const result = payload?.results?.[0];
+  const result = payload?.results?.find(isAcceptableGeocodeResult);
   if (!isAcceptableGeocodeResult(result)) return null;
   const point = {
     lat: Number(result.lat),
@@ -658,6 +750,23 @@ function isAcceptableGeocodeResult(result) {
   return true;
 }
 
+async function resolveSelectedPoint(point, apiKey, telemetry) {
+  // The client selects coordinates; locality and pricing classification remain server-owned.
+  telemetry.geocodingCalls += 1;
+  const response = await fetch("https://api.geoapify.com/v1/geocode/reverse?" + new URLSearchParams({
+    lat: String(point.lat), lon: String(point.lon), format: "json", limit: "1", lang: "pt", apiKey,
+  }), { signal: AbortSignal.timeout(12000) });
+  if (!response.ok) throw new Error("reverse geocode unavailable");
+  const result = (await response.json())?.results?.[0];
+  const city = result?.city || result?.municipality;
+  if (result?.country_code !== "br" || typeof city !== "string" || !city.trim()) return null;
+  return {
+    lat: point.lat, lon: point.lon, city,
+    localities: [result.suburb, result.district, result.neighbourhood, result.quarter,
+      result.village, result.hamlet].filter(value => typeof value === "string" && value.trim()),
+  };
+}
+
 function validPoint(point) {
   return Number.isFinite(point?.lat) && Number.isFinite(point?.lon) &&
     point.lat >= -90 && point.lat <= 90 && point.lon >= -180 && point.lon <= 180;
@@ -681,7 +790,7 @@ async function getRoute(points, apiKey, routeType = "short", telemetry) {
       details: "instruction_details",
       apiKey,
     });
-  const response = await fetch(url);
+  const response = await fetch(url, { signal: AbortSignal.timeout(12000) });
   if (!response.ok) throw new Error(`Erro Geoapify routing: ${response.status}`);
 
   const routeProperties = (await response.json())?.features?.[0]?.properties;
@@ -713,6 +822,86 @@ function json(data, status, corsHeaders) {
       ...corsHeaders,
       "Content-Type": "application/json; charset=UTF-8",
       "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer",
     },
   });
+}
+
+
+
+// Rollout is explicit: enable only after migration, Turnstile and frontend are ready.
+const REQUEST_BODY_LIMIT = 32768;
+async function readBoundedJson(request) {
+  const reader=request.body?.getReader();
+  if (!reader) throw new Error("invalid json");
+  const chunks=[];let size=0;
+  while(true){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;
+    if(size>REQUEST_BODY_LIMIT){await reader.cancel();throw new Error("body too large");}chunks.push(value);}
+  const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
+  const result=JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(bytes));
+  if(!result||typeof result!=="object"||Array.isArray(result))throw new Error("invalid json");
+  return result;
+}
+function securityEnabled(env){return env.SECURITY_ENABLED === "true";}
+function securityReady(env){return typeof env.ABUSE_SIGNING_SECRET === "string" && env.ABUSE_SIGNING_SECRET.length>=32 && env.TURNSTILE_SECRET_KEY && env.QUOTE_DB;}
+function limitedJson(message,status,cors){const response=json({error:message},status,cors);if(status===429)response.headers.set("Retry-After","60");return response;}
+async function consumeLimit(env,scope,identity,limit,period){
+  const now=Math.floor(Date.now()/1000),bucket=Math.floor(now/period)*period;
+  const key=await hmac({purpose:"abuse-counter-v1",scope,identity,day:Math.floor(now/86400)},env.ABUSE_SIGNING_SECRET);
+  const row=await env.QUOTE_DB.prepare(`INSERT INTO abuse_counters (counter_key,bucket,requests,expires_at) VALUES (?,?,1,?)
+    ON CONFLICT(counter_key,bucket) DO UPDATE SET requests=requests+1 WHERE requests < ? RETURNING requests`)
+    .bind(key,bucket,bucket+period+86400,limit).first();
+  return !!row;
+}
+async function abuseGuard(request,env,cors,verifyRead){
+  if(request.method==="POST"){
+    if(!/^application\/json(?:\s*;|$)/i.test(request.headers.get("Content-Type")||""))return limitedJson("Envie os dados em JSON.",415,cors);
+    const length=request.headers.get("Content-Length");
+    if(length && (!/^\d+$/.test(length)||Number(length)>REQUEST_BODY_LIMIT))return limitedJson("Solicitação muito grande.",413,cors);
+  }
+  if(!securityEnabled(env))return null;
+  if(!securityReady(env))return limitedJson("Proteção temporariamente indisponível. Tente novamente.",503,cors);
+  const ip=request.headers.get("CF-Connecting-IP"),origin=request.headers.get("Origin"),path=new URL(request.url).pathname;
+  if(!ip||(!verifyRead&&!origin))return limitedJson("Acesse a calculadora pelo site oficial.",403,cors);
+  const scope=verifyRead?"verify":path==="/security/session"?"session":path==="/locations/search"?"search":path==="/quote/submit"?"submit":"quote";
+  try{
+    const limit={session:6,search:60,quote:10,submit:10,verify:60}[scope];
+    if(!await consumeLimit(env,scope,ip,limit,60))return limitedJson("Muitas solicitações. Aguarde um minuto e tente novamente.",429,cors);
+    if(!verifyRead&&scope!=="session"&&!await validBrowserSession(request,env))return limitedJson("Validação de acesso necessária. Tente novamente.",401,cors);
+    // Global caps count operations, not exact provider credits.
+    if(scope==="quote"||scope==="search"){
+      const configured=Number(scope==="quote"?env.DAILY_QUOTE_LIMIT:env.DAILY_SEARCH_LIMIT);
+      const daily=Number.isInteger(configured)&&configured>=10&&configured<=10000?configured:scope==="quote"?200:1000;
+      if(!await consumeLimit(env,"daily-"+scope,"global",daily,86400))return limitedJson("Limite de consultas atingido. Solicite atendimento pelo WhatsApp.",429,cors);
+    }
+    return null;
+  }catch{return limitedJson("Proteção temporariamente indisponível. Tente novamente.",503,cors);}
+}
+async function sessionIdentity(request,env){return hmac({purpose:"browser-session-identity-v1",origin:request.headers.get("Origin"),ip:request.headers.get("CF-Connecting-IP")},env.ABUSE_SIGNING_SECRET);}
+async function issueBrowserSession(request,env,cors){
+  if(!securityEnabled(env))return json({enabled:false},200,cors);
+  try{
+    const body=await readBoundedJson(request),token=body.turnstileToken;
+    if(typeof token!=="string"||!token||token.length>2048)return limitedJson("Complete a validação de acesso.",400,cors);
+    const response=await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify",{
+      method:"POST",headers:{"Content-Type":"application/json"},signal:AbortSignal.timeout(10000),
+      body:JSON.stringify({secret:env.TURNSTILE_SECRET_KEY,response:token,remoteip:request.headers.get("CF-Connecting-IP")})});
+    if(!response.ok)return limitedJson("Validação temporariamente indisponível.",503,cors);
+    const validation=await response.json(),hostname=new URL(request.headers.get("Origin")).hostname;
+    if(validation.success!==true||validation.hostname!==hostname||validation.action!=="fonseca_session")return limitedJson("Não foi possível validar o acesso. Tente novamente.",403,cors);
+    const session={version:1,id:randomToken(24),identity:await sessionIdentity(request,env),expiresAt:Math.floor(Date.now()/1000)+1200};
+    const encoded=base64Url(new TextEncoder().encode(JSON.stringify(session)));
+    const signature=await hmac({purpose:"browser-session-v1",encoded},env.ABUSE_SIGNING_SECRET);
+    return json({token:encoded+"."+signature,expiresAt:session.expiresAt},200,cors);
+  }catch{return limitedJson("Validação temporariamente indisponível. Tente novamente.",503,cors);}
+}
+async function validBrowserSession(request,env){
+  const token=request.headers.get("X-Fonseca-Session");if(!token||token.length>1000)return false;
+  const [encoded,signature,...rest]=token.split(".");if(rest.length||!encoded||!/^[a-f0-9]{64}$/.test(signature||""))return false;
+  try{
+    if(!constantTimeEqual(signature,await hmac({purpose:"browser-session-v1",encoded},env.ABUSE_SIGNING_SECRET)))return false;
+    const session=JSON.parse(atob(encoded.replace(/-/g,"+").replace(/_/g,"/")));
+    const now=Math.floor(Date.now()/1000);
+    return session.version===1&&Number.isInteger(session.expiresAt)&&session.expiresAt>now&&session.expiresAt<=now+1200&&constantTimeEqual(session.identity,await sessionIdentity(request,env));
+  }catch{return false;}
 }

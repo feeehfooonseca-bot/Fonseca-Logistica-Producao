@@ -225,7 +225,7 @@ test("OPTIONS autorizado responde ao preflight somente com CORS necessário", as
   assert.equal(response.status, 204);
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), "https://app.example.test");
   assert.equal(response.headers.get("Access-Control-Allow-Methods"), "POST, OPTIONS");
-  assert.equal(response.headers.get("Access-Control-Allow-Headers"), "Content-Type");
+  assert.equal(response.headers.get("Access-Control-Allow-Headers"), "Content-Type, X-Fonseca-Session");
   assert.equal(calls.length, 0);
 });
 
@@ -1264,4 +1264,143 @@ test("roteamento explícito preserva alias e distingue 404 de 405", async () => 
   assert.equal(alias.response.status, 200);
   assert.equal((await callWorker("/unknown", { env: {} })).status, 404);
   assert.equal((await callWorker("/quote/submit", { method: "GET", env: {} })).status, 405);
+});
+
+
+test('busca considera candidato preciso além do primeiro resultado', async () => {
+  const result = await requestQuote({ pickup: 'Coleta', delivery: 'Local' }, { fetch: async url => {
+    if (url.pathname === '/v1/geocode/search') {
+      assert.equal(url.searchParams.get('limit'), '5');
+      const point = pointsByAddress[url.searchParams.get('text')];
+      return geoapifyResponse({ results: [{ ...point, result_type: 'city' }, point] });
+    }
+    return geoapifyResponse({ features: [{ properties: { distance: 14000, legs: [{ distance: 4000 }, { distance: 6000 }, { distance: 4000 }] } }] });
+  } });
+  assert.equal(result.response.status, 200);
+  assert.equal(result.body.price, 15);
+});
+
+test('coordenadas confirmadas preservam o ponto e localidade é resolvida no servidor', async () => {
+  const locations = { pickup: { lat: -26.2, lon: -49.2, city: 'Cidade falsa' }, deliveries: [{ lat: -26.3, lon: -49.3 }] };
+  const result = await requestQuote({ pickup: 'Local marcado na coleta', deliveries: ['Local marcado na entrega'], locations }, { fetch: async url => {
+    if (url.pathname === '/v1/geocode/search') return geoapifyResponse({ results: [pointsByAddress.Base] });
+    if (url.pathname === '/v1/geocode/reverse') return geoapifyResponse({ results: [{ lat: 0, lon: 0, city: 'São Bento do Sul', country_code: 'br' }] });
+    assert.equal(url.searchParams.get('waypoints'), '-26.1,-49.1|-26.2,-49.2|-26.3,-49.3|-26.1,-49.1');
+    return geoapifyResponse({ features: [{ properties: { distance: 14000, legs: [{ distance: 4000 }, { distance: 6000 }, { distance: 4000 }] } }] });
+  } });
+  assert.equal(result.response.status, 200);
+  assert.equal(result.body.totalPrice, 15);
+  assert.deepEqual(result.body.locations, { pickup: { lat: -26.2, lon: -49.2 }, deliveries: [{ lat: -26.3, lon: -49.3 }] });
+  assert.equal(result.calls.filter(url => url.pathname === '/v1/geocode/reverse').length, 2);
+});
+
+test('rejeita coordenadas inválidas sem consumir consultas Geoapify', async () => {
+  for (const locations of [null, { pickup: { lat: '0', lon: 0 }, deliveries: [null] }, { pickup: { lat: 91, lon: 0 }, deliveries: [null] }, { deliveries: [] }]) {
+    const result = await requestQuote({ pickup: 'Coleta', deliveries: ['Local'], locations });
+    assert.equal(result.response.status, 400);
+    assert.equal(result.calls.length, 0);
+  }
+});
+
+test('ponto sem município brasileiro confirmado não recebe preço', async () => {
+  for (const metadata of [{ city: 'São Bento do Sul', country_code: 'ar' }, { country_code: 'br' }]) {
+    const result = await requestQuote({ pickup: 'Coleta', deliveries: ['Local'], locations: { pickup: { lat: -26.2, lon: -49.2 }, deliveries: [null] } }, { fetch: async url => {
+      if (url.pathname === '/v1/geocode/search') return geoapifyResponse({ results: [pointsByAddress[url.searchParams.get('text')]] });
+      assert.equal(url.pathname, '/v1/geocode/reverse');
+      return geoapifyResponse({ results: [metadata] });
+    } });
+    assert.equal(result.response.status, 422);
+    assert.equal(result.body.totalPrice, undefined);
+  }
+});
+
+test('prova assinada vincula os pontos usados no cálculo', async () => {
+  const result = await requestQuote({ pickup: 'Coleta', deliveries: ['Local'], locations: {
+    pickup: { lat: -26.2, lon: -49.2 }, deliveries: [null],
+  } }, { env: { QUOTE_SIGNING_SECRET: 'test-secret' }, fetch: async url => {
+    if (url.pathname === '/v1/geocode/search') return geoapifyResponse({ results: [pointsByAddress[url.searchParams.get('text')]] });
+    if (url.pathname === '/v1/geocode/reverse') return geoapifyResponse({ results: [{ city: 'São Bento do Sul', country_code: 'br' }] });
+    return geoapifyResponse({ features: [{ properties: { distance: 14000, legs: [{ distance: 4000 }, { distance: 6000 }, { distance: 4000 }] } }] });
+  } });
+  assert.equal(result.response.status, 200);
+  assert.deepEqual(result.body.protectedQuote.snapshot.locations, result.body.locations);
+});
+
+test('busca para orientar mapa permite resultado aproximado e não divulga chave', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async input => {
+    const url = new URL(input);
+    assert.equal(url.pathname, '/v1/geocode/autocomplete');
+    assert.equal(url.searchParams.get('text'), 'São Bento do Sul');
+    assert.equal(url.searchParams.get('filter'), 'countrycode:br');
+    return geoapifyResponse({ results: [{ ...pointsByAddress.Base, formatted: 'São Bento do Sul', result_type: 'city' }] });
+  };
+  try {
+    const response = await workerModule.default.fetch(new Request('https://worker.example.test/locations/search', {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ text: 'São Bento do Sul' }),
+    }), { GEOAPIFY_API_KEY: 'private-key' });
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.results[0].approximate, true);
+    assert.equal(JSON.stringify(payload).includes('private-key'), false);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+
+test('TomTom resolve estabelecimento e bairro, filtra país e coordenadas e protege a chave', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, 'https://api.tomtom.com/maps/orbis/places/discover');
+    assert.equal(options.headers['TomTom-Api-Key'], 'private-tomtom');
+    assert.equal(options.headers['TomTom-Api-Version'], '3');
+    const body = JSON.parse(options.body);
+    assert.deepEqual(body.filters.countryCodesIso2, ['BR']);
+    assert.deepEqual(body.preferences.geometry.coordinates, [-49.38, -26.25]);
+    return geoapifyResponse({ results: [
+      { title: 'Mercado', subtitles: ['Centro', 'São Bento do Sul'], type: 'poi', address: { countryCodeIso2: 'BR' }, position: { coordinates: [-49.3, -26.2] } },
+      { title: 'Centro', type: 'area', address: { countryCodeIso2: 'BR' }, position: { coordinates: [-49.4, -26.3] } },
+      { title: 'Exterior', address: { countryCodeIso2: 'DE' }, position: { coordinates: [13, 54] } },
+      { title: 'Inválido', address: { countryCodeIso2: 'BR' }, position: { coordinates: [-49, 'invalid'] } },
+    ] });
+  };
+  try {
+    const response = await workerModule.default.fetch(new Request('https://worker.example.test/locations/search', {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ text: 'Mercado São Bento do Sul', provider: 'tomtom', center: { lat: -26.25, lon: -49.38 } }),
+    }), { TOMTOM_API_KEY: 'private-tomtom' });
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.provider, 'tomtom');
+    assert.deepEqual(payload.results, [
+      { lat: -26.2, lon: -49.3, label: 'Mercado, Centro, São Bento do Sul', approximate: false },
+      { lat: -26.3, lon: -49.4, label: 'Centro', approximate: true },
+    ]);
+    assert.equal(JSON.stringify(payload).includes('private-tomtom'), false);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('busca rejeita provedor desconhecido e TomTom sem chave sem consultar API', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => { assert.fail('não deve consultar API'); };
+  try {
+    for (const [provider, status] of [['unknown', 400], ['tomtom', 503]]) {
+      const response = await workerModule.default.fetch(new Request('https://worker.example.test/locations/search', {
+        method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ text: 'São Bento do Sul', provider }),
+      }), { GEOAPIFY_API_KEY: 'private-key' });
+      assert.equal(response.status, status);
+    }
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('erro TomTom não expõe mensagem interna nem substitui silenciosamente a fonte', async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => { calls++; return new Response('private-key error', { status: 429 }); };
+  try {
+    const response = await workerModule.default.fetch(new Request('https://worker.example.test/locations/search', {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ text: 'São Bento do Sul', provider: 'tomtom' }),
+    }), { TOMTOM_API_KEY: 'private-key', GEOAPIFY_API_KEY: 'other-key' });
+    assert.equal(response.status, 503);
+    assert.equal(calls, 1);
+    assert.equal((await response.text()).includes('private-key'), false);
+  } finally { globalThis.fetch = originalFetch; }
 });
