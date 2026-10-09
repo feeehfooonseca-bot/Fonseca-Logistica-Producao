@@ -225,7 +225,7 @@ test("OPTIONS autorizado responde ao preflight somente com CORS necessário", as
   assert.equal(response.status, 204);
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), "https://app.example.test");
   assert.equal(response.headers.get("Access-Control-Allow-Methods"), "POST, OPTIONS");
-  assert.equal(response.headers.get("Access-Control-Allow-Headers"), "Content-Type");
+  assert.equal(response.headers.get("Access-Control-Allow-Headers"), "Content-Type, X-Fonseca-Session");
   assert.equal(calls.length, 0);
 });
 
@@ -1337,7 +1337,7 @@ test('busca para orientar mapa permite resultado aproximado e não divulga chave
   };
   try {
     const response = await workerModule.default.fetch(new Request('https://worker.example.test/locations/search', {
-      method: 'POST', body: JSON.stringify({ text: 'São Bento do Sul' }),
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ text: 'São Bento do Sul' }),
     }), { GEOAPIFY_API_KEY: 'private-key' });
     assert.equal(response.status, 200);
     const payload = await response.json();
@@ -1365,7 +1365,7 @@ test('TomTom resolve estabelecimento e bairro, filtra país e coordenadas e prot
   };
   try {
     const response = await workerModule.default.fetch(new Request('https://worker.example.test/locations/search', {
-      method: 'POST', body: JSON.stringify({ text: 'Mercado São Bento do Sul', provider: 'tomtom', center: { lat: -26.25, lon: -49.38 } }),
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ text: 'Mercado São Bento do Sul', provider: 'tomtom', center: { lat: -26.25, lon: -49.38 } }),
     }), { TOMTOM_API_KEY: 'private-tomtom' });
     assert.equal(response.status, 200);
     const payload = await response.json();
@@ -1384,7 +1384,7 @@ test('busca rejeita provedor desconhecido e TomTom sem chave sem consultar API',
   try {
     for (const [provider, status] of [['unknown', 400], ['tomtom', 503]]) {
       const response = await workerModule.default.fetch(new Request('https://worker.example.test/locations/search', {
-        method: 'POST', body: JSON.stringify({ text: 'São Bento do Sul', provider }),
+        method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ text: 'São Bento do Sul', provider }),
       }), { GEOAPIFY_API_KEY: 'private-key' });
       assert.equal(response.status, status);
     }
@@ -1397,7 +1397,7 @@ test('erro TomTom não expõe mensagem interna nem substitui silenciosamente a f
   globalThis.fetch = async () => { calls++; return new Response('private-key error', { status: 429 }); };
   try {
     const response = await workerModule.default.fetch(new Request('https://worker.example.test/locations/search', {
-      method: 'POST', body: JSON.stringify({ text: 'São Bento do Sul', provider: 'tomtom' }),
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ text: 'São Bento do Sul', provider: 'tomtom' }),
     }), { TOMTOM_API_KEY: 'private-key', GEOAPIFY_API_KEY: 'other-key' });
     assert.equal(response.status, 503);
     assert.equal(calls, 1);

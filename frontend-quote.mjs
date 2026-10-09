@@ -14,7 +14,8 @@ export async function requestOfficialQuote(pickup, deliveries, fetchImpl = fetch
       body: JSON.stringify({ pickup, deliveries: deliveries.map(({ address }) => address),
         ...(locations ? { locations } : {}) }),
     });
-  } catch {
+  } catch (error) {
+    if (typeof error?.publicMessage === "string") throw new Error(error.publicMessage);
     throw new Error("Não foi possível conectar ao serviço de orçamento. Tente novamente.");
   }
 
@@ -144,7 +145,8 @@ export async function submitProtectedQuote(quote, details, fetchImpl = fetch) {
         details,
       }),
     });
-  } catch {
+  } catch (error) {
+    if (typeof error?.publicMessage === "string") throw new Error(error.publicMessage);
     throw new Error("Não foi possível registrar a proteção do orçamento. Tente novamente.");
   }
 

@@ -1,4 +1,5 @@
 import { ROUTE_API } from './frontend-quote.mjs';
+import { secureFetch, ensureAccess } from './frontend-security.mjs';
 
 export function createLocationState() {
   const points = new Map();
@@ -17,10 +18,10 @@ function loadLeaflet() {
   if (window.L) return Promise.resolve(window.L);
   if (!leafletPromise) leafletPromise = new Promise((resolve, reject) => {
     const css = document.createElement('link');
-    css.rel = 'stylesheet'; css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    css.integrity='sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';css.crossOrigin='anonymous';css.rel = 'stylesheet'; css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
     document.head.append(css);
     const script = document.createElement('script');
-    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.integrity='sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';script.crossOrigin='anonymous';script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
     script.onload = () => window.L ? resolve(window.L) : reject(new Error('Mapa indisponível.'));
     script.onerror = () => reject(new Error('Não foi possível carregar o mapa. Confira sua conexão.'));
     document.head.append(script);
@@ -65,7 +66,7 @@ export function setupLocations({ onChange }) {
     const signal = searchAbort.signal, current = generation;
     results.replaceChildren(); message.textContent = 'Buscando…';
     try {
-      const response = await fetch(`${ROUTE_API}/locations/search`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, provider: provider.value, center: { lat: map.getCenter().lat, lon: map.getCenter().lng } }), signal });
+      const response = await secureFetch(`${ROUTE_API}/locations/search`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, provider: provider.value, center: { lat: map.getCenter().lat, lon: map.getCenter().lng } }), signal });
       const payload = await response.json();
       if (signal.aborted || current !== generation || !dialog.open) return;
       if (!response.ok) throw new Error(payload.error || 'Busca indisponível. Marque o ponto diretamente no mapa.');
@@ -118,6 +119,8 @@ export function setupLocations({ onChange }) {
     results.replaceChildren(); query.value = input.value.trim(); message.textContent = 'Carregando mapa…';
     dialog.showModal();
     try {
+      await ensureAccess();
+      if(current!==generation||!dialog.open)return;
       L = await loadLeaflet(); if (!dialog.open || current !== generation) return;
       if (!map) {
         map = L.map(mapEl).setView([-26.25, -49.38], 13);

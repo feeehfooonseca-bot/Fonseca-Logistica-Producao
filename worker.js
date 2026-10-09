@@ -22,6 +22,13 @@ const SPECIAL_REGIONS = [
 ];
 
 export default {
+  async scheduled(_event, env, ctx) {
+    if (!env.QUOTE_DB) return;
+    ctx.waitUntil((async()=>{
+      await env.QUOTE_DB.prepare("DELETE FROM abuse_counters WHERE expires_at < ?").bind(Math.floor(Date.now()/1000)).run();
+      await env.QUOTE_DB.prepare("DELETE FROM protected_quotes WHERE expires_at < ?").bind(new Date(Date.now()-72*3600000).toISOString()).run();
+    })());
+  },
   async fetch(request, env) {
     const url = new URL(request.url);
     const corsHeaders = corsHeadersFor(request.headers.get("Origin"), env.ALLOWED_ORIGINS);
@@ -31,8 +38,18 @@ export default {
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: {
         ...corsHeaders, "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type", "Access-Control-Max-Age": "86400",
+        "Access-Control-Allow-Headers": "Content-Type, X-Fonseca-Session", "Access-Control-Max-Age": "86400",
       } });
+    }
+    const knownPost = ["/", "/quote", "/quote/submit", "/locations/search", "/security/session"].includes(url.pathname);
+    const verifyRead = url.pathname.startsWith("/quote/verify/") && request.method === "GET";
+    if ((knownPost && request.method === "POST") || verifyRead) {
+      const denied = await abuseGuard(request, env, corsHeaders, verifyRead);
+      if (denied) return denied;
+    }
+    if (url.pathname === "/security/session") {
+      if (request.method !== "POST") return json({ error: "Método não permitido." }, 405, corsHeaders);
+      return issueBrowserSession(request, env, corsHeaders);
     }
     if (url.pathname === "/quote/submit") {
       if (request.method !== "POST") return json({ error: "Método não permitido." }, 405, corsHeaders);
@@ -45,7 +62,7 @@ export default {
     if (url.pathname === "/locations/search") {
       if (request.method !== "POST") return json({ error: "Método não permitido." }, 405, corsHeaders);
       try {
-        const body = await request.json();
+        const body = await readBoundedJson(request);
         const text = validAddress(body?.text);
         if (!text) return json({ error: "Informe rua, estabelecimento ou cidade." }, 400, corsHeaders);
         const provider = body?.provider || "geoapify";
@@ -121,7 +138,7 @@ export default {
 
       let body;
       try {
-        body = await request.json();
+        body = await readBoundedJson(request);
       } catch {
         return json({ error: "JSON inválido." }, 400, corsHeaders);
       }
@@ -383,7 +400,7 @@ async function submitQuote(request, env, corsHeaders) {
   if (!env.QUOTE_SIGNING_SECRET) return json({ error: "Confirmação protegida indisponível." }, 503, corsHeaders);
   if (!env.QUOTE_DB) return json({ error: "Armazenamento de orçamento indisponível." }, 503, corsHeaders);
   let body;
-  try { body = await request.json(); } catch { return json({ error: "JSON inválido." }, 400, corsHeaders); }
+  try { body = await readBoundedJson(request); } catch { return json({ error: "JSON inválido." }, 400, corsHeaders); }
   const proof = body?.proof;
   const snapshot = body?.snapshot;
   if (!validProofShape(proof) || !validSnapshot(snapshot)) return json({ error: "Prova de orçamento inválida." }, 400, corsHeaders);
@@ -569,7 +586,7 @@ export function calculatePrice({
 }
 
 function validAddress(value) {
-  return typeof value === "string" && value.trim() ? value.trim() : null;
+  return typeof value === "string" && value.trim() && value.length <= 500 && !/[\u0000-\u001f\u007f]/.test(value) ? value.trim() : null;
 }
 
 function corsHeadersFor(origin, configuredOrigins) {
@@ -667,7 +684,7 @@ async function geocode(address, apiKey, telemetry) {
       filter: "countrycode:br",
       apiKey,
     });
-  const response = await fetch(url);
+  const response = await fetch(url, { signal: AbortSignal.timeout(12000) });
   if (!response.ok) throw new Error(`Erro Geoapify geocode: ${response.status}`);
 
   const payload = await response.json();
@@ -738,7 +755,7 @@ async function resolveSelectedPoint(point, apiKey, telemetry) {
   telemetry.geocodingCalls += 1;
   const response = await fetch("https://api.geoapify.com/v1/geocode/reverse?" + new URLSearchParams({
     lat: String(point.lat), lon: String(point.lon), format: "json", limit: "1", lang: "pt", apiKey,
-  }));
+  }), { signal: AbortSignal.timeout(12000) });
   if (!response.ok) throw new Error("reverse geocode unavailable");
   const result = (await response.json())?.results?.[0];
   const city = result?.city || result?.municipality;
@@ -773,7 +790,7 @@ async function getRoute(points, apiKey, routeType = "short", telemetry) {
       details: "instruction_details",
       apiKey,
     });
-  const response = await fetch(url);
+  const response = await fetch(url, { signal: AbortSignal.timeout(12000) });
   if (!response.ok) throw new Error(`Erro Geoapify routing: ${response.status}`);
 
   const routeProperties = (await response.json())?.features?.[0]?.properties;
@@ -805,7 +822,86 @@ function json(data, status, corsHeaders) {
       ...corsHeaders,
       "Content-Type": "application/json; charset=UTF-8",
       "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer",
     },
   });
 }
 
+
+
+// Rollout is explicit: enable only after migration, Turnstile and frontend are ready.
+const REQUEST_BODY_LIMIT = 32768;
+async function readBoundedJson(request) {
+  const reader=request.body?.getReader();
+  if (!reader) throw new Error("invalid json");
+  const chunks=[];let size=0;
+  while(true){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;
+    if(size>REQUEST_BODY_LIMIT){await reader.cancel();throw new Error("body too large");}chunks.push(value);}
+  const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
+  const result=JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(bytes));
+  if(!result||typeof result!=="object"||Array.isArray(result))throw new Error("invalid json");
+  return result;
+}
+function securityEnabled(env){return env.SECURITY_ENABLED === "true";}
+function securityReady(env){return typeof env.ABUSE_SIGNING_SECRET === "string" && env.ABUSE_SIGNING_SECRET.length>=32 && env.TURNSTILE_SECRET_KEY && env.QUOTE_DB;}
+function limitedJson(message,status,cors){const response=json({error:message},status,cors);if(status===429)response.headers.set("Retry-After","60");return response;}
+async function consumeLimit(env,scope,identity,limit,period){
+  const now=Math.floor(Date.now()/1000),bucket=Math.floor(now/period)*period;
+  const key=await hmac({purpose:"abuse-counter-v1",scope,identity,day:Math.floor(now/86400)},env.ABUSE_SIGNING_SECRET);
+  const row=await env.QUOTE_DB.prepare(`INSERT INTO abuse_counters (counter_key,bucket,requests,expires_at) VALUES (?,?,1,?)
+    ON CONFLICT(counter_key,bucket) DO UPDATE SET requests=requests+1 WHERE requests < ? RETURNING requests`)
+    .bind(key,bucket,bucket+period+86400,limit).first();
+  return !!row;
+}
+async function abuseGuard(request,env,cors,verifyRead){
+  if(request.method==="POST"){
+    if(!/^application\/json(?:\s*;|$)/i.test(request.headers.get("Content-Type")||""))return limitedJson("Envie os dados em JSON.",415,cors);
+    const length=request.headers.get("Content-Length");
+    if(length && (!/^\d+$/.test(length)||Number(length)>REQUEST_BODY_LIMIT))return limitedJson("Solicitação muito grande.",413,cors);
+  }
+  if(!securityEnabled(env))return null;
+  if(!securityReady(env))return limitedJson("Proteção temporariamente indisponível. Tente novamente.",503,cors);
+  const ip=request.headers.get("CF-Connecting-IP"),origin=request.headers.get("Origin"),path=new URL(request.url).pathname;
+  if(!ip||(!verifyRead&&!origin))return limitedJson("Acesse a calculadora pelo site oficial.",403,cors);
+  const scope=verifyRead?"verify":path==="/security/session"?"session":path==="/locations/search"?"search":path==="/quote/submit"?"submit":"quote";
+  try{
+    const limit={session:6,search:60,quote:10,submit:10,verify:60}[scope];
+    if(!await consumeLimit(env,scope,ip,limit,60))return limitedJson("Muitas solicitações. Aguarde um minuto e tente novamente.",429,cors);
+    if(!verifyRead&&scope!=="session"&&!await validBrowserSession(request,env))return limitedJson("Validação de acesso necessária. Tente novamente.",401,cors);
+    // Global caps count operations, not exact provider credits.
+    if(scope==="quote"||scope==="search"){
+      const configured=Number(scope==="quote"?env.DAILY_QUOTE_LIMIT:env.DAILY_SEARCH_LIMIT);
+      const daily=Number.isInteger(configured)&&configured>=10&&configured<=10000?configured:scope==="quote"?200:1000;
+      if(!await consumeLimit(env,"daily-"+scope,"global",daily,86400))return limitedJson("Limite de consultas atingido. Solicite atendimento pelo WhatsApp.",429,cors);
+    }
+    return null;
+  }catch{return limitedJson("Proteção temporariamente indisponível. Tente novamente.",503,cors);}
+}
+async function sessionIdentity(request,env){return hmac({purpose:"browser-session-identity-v1",origin:request.headers.get("Origin"),ip:request.headers.get("CF-Connecting-IP")},env.ABUSE_SIGNING_SECRET);}
+async function issueBrowserSession(request,env,cors){
+  if(!securityEnabled(env))return json({enabled:false},200,cors);
+  try{
+    const body=await readBoundedJson(request),token=body.turnstileToken;
+    if(typeof token!=="string"||!token||token.length>2048)return limitedJson("Complete a validação de acesso.",400,cors);
+    const response=await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify",{
+      method:"POST",headers:{"Content-Type":"application/json"},signal:AbortSignal.timeout(10000),
+      body:JSON.stringify({secret:env.TURNSTILE_SECRET_KEY,response:token,remoteip:request.headers.get("CF-Connecting-IP")})});
+    if(!response.ok)return limitedJson("Validação temporariamente indisponível.",503,cors);
+    const validation=await response.json(),hostname=new URL(request.headers.get("Origin")).hostname;
+    if(validation.success!==true||validation.hostname!==hostname||validation.action!=="fonseca_session")return limitedJson("Não foi possível validar o acesso. Tente novamente.",403,cors);
+    const session={version:1,id:randomToken(24),identity:await sessionIdentity(request,env),expiresAt:Math.floor(Date.now()/1000)+1200};
+    const encoded=base64Url(new TextEncoder().encode(JSON.stringify(session)));
+    const signature=await hmac({purpose:"browser-session-v1",encoded},env.ABUSE_SIGNING_SECRET);
+    return json({token:encoded+"."+signature,expiresAt:session.expiresAt},200,cors);
+  }catch{return limitedJson("Validação temporariamente indisponível. Tente novamente.",503,cors);}
+}
+async function validBrowserSession(request,env){
+  const token=request.headers.get("X-Fonseca-Session");if(!token||token.length>1000)return false;
+  const [encoded,signature,...rest]=token.split(".");if(rest.length||!encoded||!/^[a-f0-9]{64}$/.test(signature||""))return false;
+  try{
+    if(!constantTimeEqual(signature,await hmac({purpose:"browser-session-v1",encoded},env.ABUSE_SIGNING_SECRET)))return false;
+    const session=JSON.parse(atob(encoded.replace(/-/g,"+").replace(/_/g,"/")));
+    const now=Math.floor(Date.now()/1000);
+    return session.version===1&&Number.isInteger(session.expiresAt)&&session.expiresAt>now&&session.expiresAt<=now+1200&&constantTimeEqual(session.identity,await sessionIdentity(request,env));
+  }catch{return false;}
+}
